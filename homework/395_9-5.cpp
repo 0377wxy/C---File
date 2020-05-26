@@ -53,4 +53,6 @@ Node<T> *Node<T>::deleteAfter()
 
 int main()
 {
+    int a = 0, b;
+    double c;
 }
