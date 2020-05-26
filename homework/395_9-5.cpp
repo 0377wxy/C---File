@@ -27,6 +27,7 @@ Node<T> *Node<T>::nextNode()
 {
     return next;
 }
+
 //返回后继结点的指针
 template <class T>
 const Node<T> *Node<T>::nextNode() const
@@ -53,6 +54,46 @@ Node<T> *Node<T>::deleteAfter()
 
 int main()
 {
-    int a = 0, b;
-    double c;
+    Node<int> *p = new Node<int>(0);
+    Node<int> *q = new Node<int>(6);
+    Node<int> *x, *y;
+    for (int i = 0; i < 5; i++)
+    {
+        x = new Node<int>(i + 1);
+        y = new Node<int>(10 - i);
+        p->insertAfter(x);
+        q->insertAfter(y);
+    }
+
+    cout << "-----------" << endl;
+    while (q->nextNode())
+    {
+        x = q;
+        q = q->nextNode();
+        p->insertAfter(x);
+    }
+    p->insertAfter(q);
+    while (p->nextNode())
+    {
+        cout << p->data << endl;
+        p = p->nextNode();
+    }
+    cout << p->data << endl;
+    return 0;
 }
+
+/*
+输出结果：
+0
+10
+9
+8
+7
+6
+6
+5
+4
+3
+2
+1
+*/
