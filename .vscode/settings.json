@@ -21,7 +21,8 @@
         "memory": "cpp",
         "istream": "cpp",
         "new": "cpp",
-        "functional": "cpp"
+        "functional": "cpp",
+        "iosfwd": "cpp"
     },
     "C_Cpp.errorSquiggles": "Enabled",
     "MicroPython.executeButton": [
