@@ -190,12 +190,63 @@ public:
             new_pode->get_father()->set_right(new_pode);
         }
     }
-    /*
-    void delete (T data)
+    void transplant(Node<T> *Old, Node<T> *New)
     {
-        ;
+        if (Old->get_father() == NULL)
+        {
+            root = New;
+        }
+        else if (Old->get_father()->get_left() == Old)
+        {
+            Old->get_father()->set_left(New);
+        }
+        else
+        {
+            Old->get_father()->set_right(New);
+        }
+        if (New != NULL)
+        {
+            New->set_farher(Old->get_father());
+        }
     }
-    */
+
+    void delete_(T data, Node<T> *ro)
+    {
+        if (ro == NULL)
+        {
+            return;
+        }
+        Node<T> *temp1 = ro;
+        if (ro->get_data() == data)
+        {
+            if (ro->get_left() == NULL)
+            {
+                this->transplant(ro, ro->get_right());
+            }
+            else if (ro->get_right() == NULL)
+            {
+                this->transplant(ro, ro->get_left());
+            }
+            else
+            {
+                Node<T> *temp = ro->get_right()->minimun();
+                if (temp != ro->get_right())
+                {
+                    this->transplant(temp, temp->get_right());
+                    temp->set_right(ro->get_right());
+                    temp->get_right()->set_farher(temp);
+                }
+                this->transplant(ro, temp);
+                temp->set_left(ro->get_left());
+                temp->get_left()->set_farher(temp);
+            }
+        }
+        else
+        {
+            this->search(data, temp1->get_left());
+            this->search(data, temp1->get_right());
+        }
+    }
 };
 
 int main()
