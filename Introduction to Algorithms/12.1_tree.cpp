@@ -129,6 +129,25 @@ private:
 
 public:
     Tree<T>(Node<T> *ro = NULL) : root(ro) {}
+    ~Tree<T>()
+    {
+        this->post_order_traversal_destructuring(root);
+        root = NULL;
+    }
+    void post_order_traversal_destructuring(Node<T> *temp)
+    {
+        if (temp->get_left() != NULL)
+        {
+            this->post_order_traversal_destructuring(temp->get_left());
+        }
+        if (temp->get_right() != NULL)
+        {
+            this->post_order_traversal_destructuring(temp->get_right());
+        }
+        cout << "   " << temp->get_data() << endl;
+        delete temp;
+        temp = NULL;
+    }
     int &get_num()
     {
         return num;
@@ -154,8 +173,13 @@ public:
         }
         else
         {
-            this->search(data, temp1->get_left());
-            this->search(data, temp1->get_right());
+            if (this->search(data, temp1->get_left()) ||
+                this->search(data, temp1->get_right()))
+                return true;
+            else
+            {
+                return false;
+            }
         }
     }
 
@@ -165,6 +189,7 @@ public:
         if (root == NULL)
         {
             root = new_pode;
+            num++;
             return;
         }
         Node<T> *temp = root;
@@ -189,6 +214,7 @@ public:
         {
             new_pode->get_father()->set_right(new_pode);
         }
+        num++;
     }
     void transplant(Node<T> *Old, Node<T> *New)
     {
@@ -219,6 +245,7 @@ public:
         Node<T> *temp1 = ro;
         if (ro->get_data() == data)
         {
+            cout << "xxxx" << endl;
             if (ro->get_left() == NULL)
             {
                 this->transplant(ro, ro->get_right());
@@ -239,27 +266,39 @@ public:
                 this->transplant(ro, temp);
                 temp->set_left(ro->get_left());
                 temp->get_left()->set_farher(temp);
+                delete ro;
+                num--;
             }
         }
         else
         {
-            this->search(data, temp1->get_left());
-            this->search(data, temp1->get_right());
+            this->delete_(data, temp1->get_left());
+            this->delete_(data, temp1->get_right());
         }
     }
 };
 
 int main()
 {
-    Tree<int> tree;
-    tree.insert(5);
-    tree.insert(2);
-    tree.insert(7);
-    tree.insert(4);
-    tree.insert(3);
-    tree.insert(6);
-    cout << tree.get_root()->successor()->get_data() << endl;
-    cout << tree.get_root()->predecessor()->get_data() << endl;
-    cout << tree.search(0, tree.get_root()) << endl;
+    Tree<int> *tree = new Tree<int>();
+    tree->insert(5);
+    tree->insert(2);
+    tree->insert(7);
+    cout << "                  " << tree->get_num() << endl;
+    tree->insert(4);
+    tree->insert(3);
+    tree->insert(6);
+    tree->insert(0);
+    tree->insert(1);
+    cout << "                  " << tree->get_num() << endl;
+    cout << tree->search(2, tree->get_root()) << endl;
+    tree->delete_(2, tree->get_root());
+    cout << "                  " << tree->get_num() << endl;
+    cout << tree->get_root()->successor()->get_data() << endl;
+    cout << tree->get_root()->predecessor()->get_data() << endl;
+    cout << tree->search(2, tree->get_root()) << endl;
+    delete tree;
+    cout << "                  " << tree->get_num() << endl;
+    cout << "   xxx x  " << endl;
     return 0;
 }
