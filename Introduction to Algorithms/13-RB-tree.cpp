@@ -1,5 +1,6 @@
 //红黑树的基本功能的实现
 
+#include <string>
 #include <iostream>
 using namespace std;
 
@@ -11,6 +12,7 @@ private:
     Node<T> *left = NULL;
     Node<T> *right = NULL;
     Node<T> *father = NULL;
+    string color = "R";
 
 public:
     Node<T>(T data) : main_data(data) {}
@@ -45,6 +47,14 @@ public:
     void set_farher(Node<T> *fa)
     {
         father = fa;
+    }
+    string get_color()
+    {
+        return color;
+    }
+    void set_color(string co)
+    {
+        color = co;
     }
     Node<T> *minimun()
     {
@@ -188,7 +198,9 @@ public:
         if (root == NULL)
         {
             root = new_pode;
+            root->set_color("B");
             num++;
+            RB_insert_fixup(new_pode);
             return;
         }
         Node<T> *temp = root;
@@ -214,6 +226,7 @@ public:
             new_pode->get_father()->set_right(new_pode);
         }
         num++;
+        RB_insert_fixup(new_pode);
     }
     void transplant(Node<T> *Old, Node<T> *New)
     {
@@ -320,22 +333,72 @@ public:
         }
         x->set_farher(y);
     }
+    void RB_insert_fixup(Node<T> *z)
+    {
+        while (z->get_father() != NULL && z->get_father()->get_color() == "R")
+        {
+            if (z->get_father() == z->get_father()->get_father()->get_left())
+            {
+                Node<T> *y = z->get_father()->get_father()->get_right();
+                if (y->get_color() == "R")
+                {
+                    y->set_color("B");
+                    z->get_father()->set_color("B");
+                    z->get_father()->get_father()->set_color("R");
+                    z = z->get_father()->get_father();
+                }
+                else
+                {
+                    if (z->get_father()->get_right() == z)
+                    {
+                        z = z->get_father();
+                        this->left_rotate(z);
+                    }
+                    z->get_father()->set_color("B");
+                    z->get_father()->get_father()->set_color("R");
+                    this->right_rotate(z->get_father()->get_father());
+                }
+            }
+            else
+            {
+                Node<T> *y = z->get_father()->get_father()->get_left();
+                if (y->get_color() == "R")
+                {
+                    z->get_father()->set_color("B");
+                    y->set_color("B");
+                    z->get_father()->get_father()->set_color("R");
+                    z = z->get_father()->get_father();
+                }
+                else
+                {
+                    if (z->get_father()->get_left() == z)
+                    {
+                        z = z->get_father();
+                        this->right_rotate(z);
+                    }
+                    z->get_father()->set_color("B");
+                    z->get_father()->get_father()->set_color("R");
+                    this->left_rotate(z->get_father()->get_father());
+                }
+            }
+            root->set_color("B");
+        }
+    }
 };
 
 int main()
 {
     Tree<int> *tree = new Tree<int>();
-    tree->insert(5);
+    tree->insert(1);
     tree->insert(2);
-    tree->insert(7);
+    tree->insert(13);
     tree->insert(4);
-    tree->insert(3);
-    tree->insert(6);
+    tree->insert(5);
+    tree->insert(10);
+    tree->insert(7);
     tree->insert(0);
-    tree->insert(9);
-    tree->right_rotate(tree->get_root());
+    cout << "   xxx x  " << endl;
     delete tree;
 
-    cout << "   xxx x  " << endl;
     return 0;
 }
