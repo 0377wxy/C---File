@@ -13,9 +13,10 @@ private:
     Node<T> *right = NULL;
     Node<T> *father = NULL;
     string color = "R";
+    T nil_data;
 
 public:
-    Node<T>(T data) : main_data(data) {}
+    Node<T>(T data, T nil) : main_data(data), nil_data(nil) {}
     T get_data()
     {
         return main_data;
@@ -58,10 +59,10 @@ public:
     }
     Node<T> *minimun()
     {
-        if (left != NULL)
+        if (left->get_data() != nil_data)
         {
             Node<T> *temp = left;
-            while (temp->get_left() != NULL)
+            while (temp->get_left()->get_data() != nil_data)
             {
                 temp = temp->get_left();
             }
@@ -74,10 +75,10 @@ public:
     }
     Node<T> *maximum()
     {
-        if (right != NULL)
+        if (right->get_data() != nil_data)
         {
             Node<T> *temp = right;
-            while (temp->get_right() != NULL)
+            while (temp->get_right()->get_data() != nil_data)
             {
                 temp = temp->get_right();
             }
@@ -90,12 +91,12 @@ public:
     }
     Node<T> *predecessor()
     {
-        if (left != NULL)
+        if (left->get_data() != nil_data)
         {
             return left->maximum();
         }
         Node<T> *temp = this;
-        while (temp->get_father() != NULL)
+        while (temp->get_father()->get_data() != nil_data)
         {
             if (temp->get_father()->get_right() == temp)
             {
@@ -110,12 +111,12 @@ public:
     }
     Node<T> *successor()
     {
-        if (right != NULL)
+        if (right->get_data() != nil_data)
         {
             return right->minimun();
         }
         Node<T> *temp = this;
-        while (temp->get_father() != NULL)
+        while (temp->get_father()->get_data() != nil_data)
         {
             if (temp->get_father()->get_left() == temp)
             {
@@ -136,9 +137,14 @@ class Tree
 private:
     Node<T> *root;
     int num = 0;
+    Node<T> *NIL;
 
 public:
-    Tree<T>(Node<T> *ro = NULL) : root(ro) {}
+    Tree<T>(T nil_data, Node<T> *ro = NULL) : root(ro)
+    {
+        NIL = new Node<T>(nil_data, nil_data);
+        NIL->set_color("B");
+    }
     ~Tree<T>()
     {
         this->post_order_traversal_destructuring(root);
@@ -169,10 +175,11 @@ public:
     void set_root(Node<T> *ro)
     {
         root = ro;
+        root->set_farher(NIL);
     }
     bool search(T data, Node<T> *ro)
     {
-        if (ro == NULL)
+        if (ro == NIL)
         {
             return false;
         }
@@ -194,17 +201,19 @@ public:
     }
     void insert(T data)
     {
-        Node<T> *new_pode = new Node<T>(data);
+        Node<T> *new_pode = new Node<T>(data, NIL->get_data());
+        new_pode->set_left(NIL);
+        new_pode->set_right(NIL);
         if (root == NULL)
         {
-            root = new_pode;
+            this->set_root(new_pode);
             root->set_color("B");
             num++;
             RB_insert_fixup(new_pode);
             return;
         }
         Node<T> *temp = root;
-        while (temp != NULL)
+        while (temp != NIL)
         {
             if (data < temp->get_data())
             {
@@ -230,9 +239,9 @@ public:
     }
     void transplant(Node<T> *Old, Node<T> *New)
     {
-        if (Old->get_father() == NULL)
+        if (Old->get_father() == NIL)
         {
-            root = New;
+            this->set_root(NIL);
         }
         else if (Old->get_father()->get_left() == Old)
         {
@@ -242,7 +251,7 @@ public:
         {
             Old->get_father()->set_right(New);
         }
-        if (New != NULL)
+        if (New == NIL)
         {
             New->set_farher(Old->get_father());
         }
@@ -291,14 +300,14 @@ public:
     {
         Node<T> *y = x->get_right();
         x->set_right(y->get_left());
-        if (y->get_left() != NULL)
+        if (y->get_left() != NIL && y->get_left() != NULL)
         {
             y->get_left()->set_farher(x);
         }
-        y->set_left(x);
-        if (x->get_father() == NULL)
+        y->set_farher(x->get_father());
+        if (x->get_father() == NIL)
         {
-            root = y;
+            this->set_root(y);
         }
         else if (x == x->get_father()->get_left())
         {
@@ -308,20 +317,21 @@ public:
         {
             x->get_father()->set_right(y);
         }
+        y->set_left(x);
         x->set_farher(y);
     }
     void right_rotate(Node<T> *x)
     {
         Node<T> *y = x->get_left();
         x->set_left(y->get_right());
-        if (y->get_right() != NULL)
+        if (y->get_right() != NIL && y->get_right() != NULL)
         {
             y->get_right()->set_farher(x);
         }
-        y->set_right(x);
-        if (x->get_father() == NULL)
+        y->set_farher(x->get_father());
+        if (x->get_father() == NIL)
         {
-            root = y;
+            this->set_root(y);
         }
         else if (x->get_father()->get_left() == x)
         {
@@ -331,11 +341,12 @@ public:
         {
             x->get_father()->set_right(y);
         }
+        y->set_right(x);
         x->set_farher(y);
     }
     void RB_insert_fixup(Node<T> *z)
     {
-        while (z->get_father() != NULL && z->get_father()->get_color() == "R")
+        while (z->get_father()->get_color() == "R")
         {
             if (z->get_father() == z->get_father()->get_father()->get_left())
             {
@@ -388,7 +399,7 @@ public:
 
 int main()
 {
-    Tree<int> *tree = new Tree<int>();
+    Tree<int> *tree = new Tree<int>(-100);
     tree->insert(1);
     tree->insert(2);
     tree->insert(13);
