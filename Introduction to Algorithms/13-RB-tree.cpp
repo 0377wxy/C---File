@@ -149,14 +149,15 @@ public:
     {
         this->post_order_traversal_destructuring(root);
         root = NULL;
+        delete NIL;
     }
     void post_order_traversal_destructuring(Node<T> *temp)
     {
-        if (temp->get_left() != NULL)
+        if (temp->get_left() != NIL)
         {
             this->post_order_traversal_destructuring(temp->get_left());
         }
-        if (temp->get_right() != NULL)
+        if (temp->get_right() != NIL)
         {
             this->post_order_traversal_destructuring(temp->get_right());
         }
@@ -251,50 +252,134 @@ public:
         {
             Old->get_father()->set_right(New);
         }
-        if (New == NIL)
-        {
-            New->set_farher(Old->get_father());
-        }
+        New->set_farher(Old->get_father());
     }
-    void delete_(T data, Node<T> *ro)
+    Node<T> *delete_search(T data, Node<T> *ro)
     {
         if (ro == NULL)
         {
-            return;
+            return NULL;
         }
         Node<T> *temp1 = ro;
         if (ro->get_data() == data)
         {
-            cout << "xxxx" << endl;
-            if (ro->get_left() == NULL)
-            {
-                this->transplant(ro, ro->get_right());
-            }
-            else if (ro->get_right() == NULL)
-            {
-                this->transplant(ro, ro->get_left());
-            }
-            else
-            {
-                Node<T> *temp = ro->get_right()->minimun();
-                if (temp != ro->get_right())
-                {
-                    this->transplant(temp, temp->get_right());
-                    temp->set_right(ro->get_right());
-                    temp->get_right()->set_farher(temp);
-                }
-                this->transplant(ro, temp);
-                temp->set_left(ro->get_left());
-                temp->get_left()->set_farher(temp);
-                delete ro;
-                num--;
-            }
+            return ro;
         }
         else
         {
-            this->delete_(data, temp1->get_left());
-            this->delete_(data, temp1->get_right());
+            this->delete_search(data, temp1->get_left());
+            this->delete_search(data, temp1->get_right());
         }
+    }
+    void RB_delete(T data)
+    {
+        Node<T> *z = delete_search(data, root);
+        Node<T> *y = z;
+        string y_originall_color = y->get_color();
+        Node<T> *x;
+        if (z->get_left() == NIL)
+        {
+            x = z->get_right();
+            transplant(z, x);
+        }
+        else if (z->get_right() == NIL)
+        {
+            x = z->get_left();
+            transplant(z, x);
+        }
+        else
+        {
+            y = z->get_right()->minimun();
+            y_originall_color = y->get_color();
+            x = y->get_right();
+            if (z->get_right() == y)
+            {
+                x->set_farher(y);
+            }
+            else
+            {
+                transplant(y, x);
+                y->set_right(z->get_right());
+                y->get_right()->set_farher(y);
+            }
+            transplant(z, y);
+            y->set_left(z->get_left());
+            y->get_left()->set_farher(y);
+            y->set_color(z->get_color());
+        }
+        if (y_originall_color == "B")
+        {
+            RB_delete_fixup(x);
+        }
+    }
+    void RB_delete_fixup(Node<T> *x)
+    {
+        while (x != root && x->get_color() == "B")
+        {
+            if (x == x->get_father()->get_left())
+            {
+                Node<T> *w = x->get_father()->get_right();
+                if (w->get_color() == "R")
+                {
+                    x->get_father()->set_color("R");
+                    w->set_color("B");
+                    left_rotate(x->get_father());
+                    w = x->get_father()->get_right();
+                }
+                if (w->get_left()->get_color() == "B" && w->get_right()->get_color() == "B")
+                {
+                    w->set_color("R");
+                    x = x->get_father();
+                }
+                else
+                {
+                    if (w->get_right()->get_color() == "B")
+                    {
+                        w->set_color("R");
+                        w->get_left()->set_color("B");
+                        right_rotate(w);
+                        w = x->get_father()->get_right();
+                    }
+                    x->get_father()->set_color("B");
+                    w->set_color("R");
+                    w->get_right()->set_color("B");
+                    left_rotate(x->get_father());
+                    x = root;
+                }
+            }
+            else
+            {
+                Node<T> *w = x->get_father()->get_left();
+                if (w->get_color() == "R")
+                {
+                    x->get_father()->set_color("R");
+                    w->set_color("B");
+                    right_rotate(x->get_father());
+                    w = x->get_father()->get_left();
+                }
+                if (w->get_right()->get_color() == "B" && w->get_left()->get_color() == "B")
+                {
+                    w->set_color("R");
+                    x = x->get_father();
+                }
+                else
+                {
+                    if (w->get_left()->get_color() == "B")
+                    {
+                        w->set_color("R");
+                        w->get_right()->set_color("B");
+                        left_rotate(w);
+                        w = x->get_father()->get_left();
+                    }
+                    x->get_father()->set_color("B");
+                    w->set_color("R");
+                    w->get_left()->set_color("B");
+                    right_rotate(x->get_father());
+                    x = root;
+                }
+            }
+        }
+        x->set_color("B");
     }
     void left_rotate(Node<T> *x)
     {
@@ -408,6 +493,8 @@ int main()
     tree->insert(10);
     tree->insert(7);
     tree->insert(0);
+    tree->RB_delete(5);
+    tree->RB_delete(7);
     cout << "   xxx x  " << endl;
     delete tree;
 
