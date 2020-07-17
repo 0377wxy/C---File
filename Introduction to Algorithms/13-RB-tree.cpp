@@ -267,8 +267,17 @@ public:
         }
         else
         {
-            this->delete_search(data, temp1->get_left());
-            this->delete_search(data, temp1->get_right());
+            Node<T> *x;
+            x = this->delete_search(data, temp1->get_left());
+            if (x != NIL)
+            {
+                return x;
+            }
+            else
+            {
+                x = this->delete_search(data, temp1->get_right());
+                return x;
+            }
         }
     }
     void RB_delete(T data)
@@ -493,7 +502,7 @@ int main()
     tree->insert(10);
     tree->insert(7);
     tree->insert(0);
-    tree->RB_delete(5);
+    tree->RB_delete(13);
     tree->RB_delete(7);
     cout << "   xxx x  " << endl;
     delete tree;
