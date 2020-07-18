@@ -1,51 +1,33 @@
 #include <iostream>
-#include <map>
-#include <string>
 #include <vector>
+#include <list>
+#include <string>
+#include <math.h>
 using namespace std;
 
-class student
+class A
 {
-private:
-    int age;
-    int number;
-    char *name;
-
 public:
-    student(int ag, int num, char *nm);
-    student(const student &st);
-    ~student();
-    void display();
-    student &xx(student a)
+    int *p = NULL;
+    A(int a)
     {
-        a.age = 1000;
-        return a;
+        p = new int(a);
+    }
+    int *&xx()
+    {
+        return p;
     }
 };
-student::student(int ag, int num, char *nm) : age(ag), number(num), name(nm) {}
-student::student(const student &st)
+
+int xxxx()
 {
-    age = st.age;
-    number = st.number;
-    *name = *(st.name);
-}
-student::~student()
-{
-    cout << " 析构 " << endl;
-}
-void student::display()
-{
-    cout << " age  " << age << endl;
-    cout << " number  " << number << endl;
-    cout << " char " << *name << endl;
+    cout << "    xxx x " << endl;
+    return 9;
 }
 
 int main()
 {
-    student x1(2, 122, "wx");
-    x1.display();
-    student x2(1, 2, "w");
-    x2 = x1.xx(x2);
-    x2.display();
+    string a = "R";
+    cout << (a == "R") << endl;
     return 0;
 }
