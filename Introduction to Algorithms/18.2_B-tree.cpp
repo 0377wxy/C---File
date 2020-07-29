@@ -123,6 +123,150 @@ public:
             insert_nonfull(x->c[i], k);
         }
     }
+    void delete_node(Node *x, int k)
+    {
+        int i = 0;
+        while (i < x->num && k != x->key[i])
+        {
+            i++;
+        }
+        if (i < x->num)
+        {
+            if (x->leaf)
+            {
+                for (int j = i; j < x->num - 1; j++)
+                {
+                    x->key[j] = x->key[j + 1];
+                }
+                x->num -= 1;
+            }
+            else
+            {
+                if (x->c[i]->num >= t)
+                {
+                    x->key[i] = x->c[i]->key[x->c[i]->num - 1];
+                    delete_node(x->c[i], x->c[i]->key[x->c[i]->num - 1]);
+                }
+                else if (x->c[i + 1]->num >= t)
+                {
+                    x->key[i] = x->c[i + 1]->key[0];
+                    delete_node(x->c[i + 1], x->c[i + 1]->key[0]);
+                }
+                else
+                {
+                    x->c[i]->key[x->c[i]->num] = x->key[i];
+                    for (int j = 0; j < x->c[i + 1]->num; j++)
+                    {
+                        x->c[i]->key[j + x->c[i]->num + 1] = x->c[i + 1]->key[j];
+                    }
+                    for (int j = 0; j <= x->c[i + 1]->num; j++)
+                    {
+                        x->c[i]->c[j + x->c[i]->num + 1] = x->c[i + 1]->c[j];
+                    }
+                    x->c[i]->num = x->c[i]->num + 1 + x->c[i + 1]->num;
+                    delete x->c[i + 1];
+                    for (int j = i; j < x->num - 1; j++)
+                    {
+                        x->key[j] = x->key[j + 1];
+                        x->c[j + 1] = x->c[j + 2];
+                    }
+                    x->num--;
+                    delete_node(x->c[i], k);
+                }
+            }
+        }
+        else
+        {
+            i = 0;
+            while (k > x->key[i])
+            {
+                i++;
+            }
+            if (x->c[i]->num >= t)
+            {
+                delete_node(x->c[i], k);
+            }
+            else
+            {
+                if (i - 1 >= 0 && x->c[i - 1]->num >= t)
+                {
+                    for (int j = x->c[i]->num; j > 0; j--)
+                    {
+                        x->c[i]->key[j] = x->c[i]->key[j - 1];
+                    }
+                    for (int j = x->c[i]->num + 1; j > 0; j--)
+                    {
+                        x->c[i]->c[j] = x->c[i]->c[j - 1];
+                    }
+                    x->c[i]->num++;
+                    x->c[i]->key[0] = x->key[i - 1];
+                    x->c[i]->c[0] = x->c[i - 1]->c[x->c[i - 1]->num];
+                    x->key[i - 1] = x->c[i - 1]->key[x->c[i - 1]->num - 1];
+                    x->c[i - 1]->num--;
+                    delete_node(x->c[i], k);
+                }
+                else if (i + 1 <= x->num - 1 && x->c[i + 1]->num >= t)
+                {
+                    x->c[i]->key[x->c[i]->num] = x->key[i];
+                    x->c[i]->c[x->c[i]->num + 1] = x->c[i + 1]->c[0];
+                    x->c[i]->num++;
+                    x->key[i] = x->c[i + 1]->key[0];
+                    for (int j = 0; j < x->c[i + 1]->num - 2; j++)
+                    {
+                        x->c[i]->key[j] = x->c[i]->key[j + 1];
+                    }
+                    for (int j = 0; j < x->c[i + 1]->num - 1; j++)
+                    {
+                        x->c[i]->c[j] = x->c[i]->c[j + 1];
+                    }
+                    x->c[i + 1]->num--;
+                    delete_node(x->c[i], k);
+                }
+                else if (i - 1 >= 0 && x->c[i - 1]->num < t)
+                {
+                    x->c[i - 1]->key[x->c[i - 1]->num] = x->key[i - 1];
+                    for (int j = 0; j < x->c[i]->num; j++)
+                    {
+                        x->c[i + 1]->key[j + x->c[i + 1]->num + 1] = x->c[i]->key[j];
+                    }
+                    for (int j = 0; j <= x->c[i]->num; j++)
+                    {
+                        x->c[i + 1]->c[j + x->c[i + 1]->num + 1] = x->c[i]->c[j];
+                    }
+                    x->c[i - 1]->num = x->c[i - 1]->num + 1 + x->c[i]->num;
+                    delete x->c[i];
+                    for (int j = i - 1; j < x->num - 1; j++)
+                    {
+                        x->key[j] = x->key[j + 1];
+                        x->c[j + 1] = x->c[j + 2];
+                    }
+                    x->num--;
+                    delete_node(x->c[i - 1], k);
+                }
+                else if (i + 1 <= x->num - 1 && x->c[i + 1]->num < t)
+                {
+                    x->c[i]->key[x->c[i]->num] = x->key[i];
+                    for (int j = 0; j < x->c[i + 1]->num; j++)
+                    {
+                        x->c[i]->key[j + x->c[i]->num + 1] = x->c[i + 1]->key[j];
+                    }
+                    for (int j = 0; j <= x->c[i + 1]->num; j++)
+                    {
+                        x->c[i]->c[j + x->c[i]->num + 1] = x->c[i + 1]->c[j];
+                    }
+                    x->c[i]->num = x->c[i]->num + 1 + x->c[i + 1]->num;
+                    delete x->c[i + 1];
+                    for (int j = i; j < x->num - 1; j++)
+                    {
+                        x->key[j] = x->key[j + 1];
+                        x->c[j + 1] = x->c[j + 2];
+                    }
+                    x->num--;
+                    delete_node(x->c[i], k);
+                }
+            }
+        }
+    }
 };
 
 int B_Tree::t = 3;
@@ -147,6 +291,14 @@ int main()
     tree->insert(1);
     tree->insert(8);
     tree->insert(12);
+    tree->delete_node(tree->get_root(), 11);
+    tree->delete_node(tree->get_root(), 10);
+    tree->delete_node(tree->get_root(), 6);
+    tree->delete_node(tree->get_root(), 15);
+    tree->delete_node(tree->get_root(), 7);
+    tree->delete_node(tree->get_root(), 9);
+    tree->delete_node(tree->get_root(), 13);
+    tree->delete_node(tree->get_root(), 12);
 
     return 0;
 }
