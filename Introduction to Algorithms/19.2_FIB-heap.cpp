@@ -28,6 +28,10 @@ private:
     int num = 0;
 
 public:
+    Node *get_min()
+    {
+        return min;
+    }
     void FIB_insert(int k)
     {
         Node *x = new Node(k);
@@ -194,6 +198,65 @@ public:
         x->degree++;
         y->mark = false;
     }
+    void FIB_decrease_key(Node *x, int k)
+    {
+        if (x->key < k)
+        {
+            cout << " error " << endl;
+        }
+        x->key = k;
+        Node *y = x->father;
+        if (y != NULL && x->key < y->key)
+        {
+            cut(x, y);
+            cascading_cut(y);
+        }
+        if (x->key < min->key)
+        {
+            min = x;
+        }
+    }
+    void cut(Node *x, Node *y)
+    {
+        if (y->degree == 1)
+        {
+            y->child = NULL;
+        }
+        else
+        {
+            y->child = x->right;
+            x->left->right = x->right;
+            x->right->left = x->left;
+        }
+        x->left = min;
+        x->right = min->right;
+        x->left->right = x;
+        x->right->left = x;
+        y->degree--;
+        x->father = NULL;
+        x->mark = false;
+    }
+    void cascading_cut(Node *y)
+    {
+        Node *z = y->father;
+        if (z != NULL)
+        {
+            if (y->mark == false)
+            {
+                y->mark = true;
+            }
+            else
+            {
+                cut(y, z);
+                cascading_cut(z);
+            }
+        }
+    }
+    void FBI_delecte(Node *x)
+    {
+        FIB_decrease_key(x, -100000);
+        FBI_extract_min();
+    }
 };
 
 int main()
@@ -214,6 +277,8 @@ int main()
     heap->FIB_insert(16);
     heap->FIB_insert(21);
     heap->consolidate();
-    heap->FBI_extract_min();
+    // heap->FBI_extract_min();
+    heap->FBI_delecte(heap->get_min()->child->right->child);
+    heap->FBI_delecte(heap->get_min()->child->right->child);
     return 0;
 }
