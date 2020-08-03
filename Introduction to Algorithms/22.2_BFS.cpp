@@ -32,6 +32,8 @@ private:
     int d = 0;
     string color;
     int father;
+    int start = 0;
+    int end = 0;
 
 public:
     Point(string k)
@@ -50,6 +52,7 @@ private:
     map<int, vector<Edge>> figure;
 
 public:
+    static int time;
     void add_Point(string k)
     {
         points.push_back(Point(k));
@@ -59,7 +62,6 @@ public:
     void add_Edge(string k1, string k2, int w = 0)
     {
         figure[key_n[k1]].push_back(Edge(key_n[k2], k2, w));
-        figure[key_n[k2]].push_back(Edge(key_n[k1], k1, w));
     }
     void BFS(string k)
     {
@@ -83,10 +85,37 @@ public:
             points[u].color = "black";
         }
     }
+    void DFS(string k)
+    {
+        for (Point &u : points)
+        {
+            if (u.color == "white")
+            {
+                DFS_visit(u);
+            }
+        }
+    }
+    void DFS_visit(Point &u)
+    {
+        time++;
+        u.start = time;
+        u.color = "gray";
+        for (Edge v : figure[key_n[u.key]])
+        {
+            if (points[v.num].color == "white")
+            {
+                DFS_visit(points[v.num]);
+            }
+        }
+        u.color = "black";
+        time++;
+        u.end = time;
+    }
 };
-
+int Figure::time = 0;
 int main()
 {
+    /*
     Figure fig;
     fig.add_Point("r");
     fig.add_Point("v");
@@ -107,5 +136,22 @@ int main()
     fig.add_Edge("s", "w");
     fig.add_Edge("t", "x");
     fig.BFS("s");
+    */
+    Figure fig;
+    fig.add_Point("u");
+    fig.add_Point("v");
+    fig.add_Point("w");
+    fig.add_Point("x");
+    fig.add_Point("y");
+    fig.add_Point("z");
+    fig.add_Edge("u", "x");
+    fig.add_Edge("u", "v");
+    fig.add_Edge("x", "v");
+    fig.add_Edge("v", "y");
+    fig.add_Edge("y", "x");
+    fig.add_Edge("w", "y");
+    fig.add_Edge("w", "z");
+    fig.add_Edge("z", "z");
+    fig.DFS("u");
     return 0;
 }
