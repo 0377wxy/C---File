@@ -1,4 +1,4 @@
-// 最小生成树-Kruskal算法
+// 最小生成树-Kruskal算法与prim算法
 
 #include <iostream>
 #include <vector>
@@ -50,6 +50,7 @@ private:
     int father;
     int start = 0;
     int end = 0;
+    int min_weight = 100000; // 最小生成树 用
 
 public:
     Point(string k)
@@ -80,7 +81,7 @@ public:
     void add_Edge(string k1, string k2, int w = 0)
     {
         figure[key_n[k1]].push_back(Edge(key_n[k2], k2, w));
-
+        figure[key_n[k2]].push_back(Edge(key_n[k1], k1, w));
         edges.push_back(Edge_Q(key_n[k1], key_n[k2], w));
     }
     void BFS(string k)
@@ -161,7 +162,7 @@ public:
     {
         sort(edges.begin(), edges.end(), [](Edge_Q a, Edge_Q b) -> bool { return a.weight < b.weight; });
     }
-    int find_farher(Point a)
+    int find_farher(Point a) // 最小生成树算法——MST_kruskal用
     {
         if (a.father != key_n[a.key])
         {
@@ -187,6 +188,31 @@ public:
         for (Edge_Q e : res)
         {
             cout << points[e.a].key << "--" << points[e.b].key << endl;
+        }
+    }
+    void MST_prim()
+    {
+        vector<Point> Q = points;
+        points[0].min_weight = 0;
+        for (int j = 0; j < points.size(); j++)
+        {
+            vector<Point>::iterator m = Q.begin();
+            for (vector<Point>::iterator i = Q.begin(); i != Q.end(); i++)
+            {
+                if (i->min_weight <= m->min_weight)
+                {
+                    m = i;
+                }
+            }
+            for (Edge e : figure[key_n[m->key]])
+            {
+                if (Q[e.num].min_weight != 11111 && e.weight < Q[e.num].min_weight)
+                {
+                    points[e.num].father = key_n[m->key];
+                    Q[e.num].min_weight = e.weight;
+                }
+            }
+            m->min_weight = 11111;
         }
     }
 };
@@ -218,6 +244,6 @@ int main()
     fig.add_Edge("g", "h", 1);
     fig.add_Edge("g", "i", 6);
     fig.add_Edge("h", "i", 7);
-    fig.MST_kruskal();
+    fig.MST_prim();
     return 0;
 }
