@@ -123,7 +123,7 @@ public:
         if (points[e.num].dis > points[a].dis + e.weight)
         {
             points[e.num].dis = points[a].dis + e.weight;
-            points[e.num].father = e.num;
+            points[e.num].father = a;
         }
     }
     void DAG_shoptest_paths(string k)
