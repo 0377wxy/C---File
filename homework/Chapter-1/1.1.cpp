@@ -110,7 +110,9 @@ int main()
             insert_node(negative, temp);
         }
     }
+    cout << "正数" << endl;
     print_list(positive);
+    cout << "负数" << endl;
     print_list(negative);
     destroy_list(positive);
     destroy_list(negative);

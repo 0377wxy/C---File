@@ -117,6 +117,7 @@ int main()
             insert_node(negative, temp);
         }
     }
+    cout << "合并前：" << endl;
     print_list(positive);
     print_list(negative);
     cout << "合并后：" << endl;
