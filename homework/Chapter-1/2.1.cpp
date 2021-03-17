@@ -138,5 +138,6 @@ int main()
     cout << "最大： " << stack.top()->all_max << endl;
     cout << "最小： " << stack.top()->all_min << endl;
     delete stack.top();
+
     return 0;
 }
