@@ -14,7 +14,7 @@ typedef float f32;
 
 typedef struct
 {
-    f32 **Tar_Points;                                     // Target point list ，目标点与中间点序列，指向MtoC里的 目标点序列
+    f32 Tar_Points[MAX_NUM_OF_POINT][3];                  // Target point list ，目标点与中间点序列，指向MtoC里的 目标点序列
     u32 Tar_P_Num;                                        // target points number ，目标点数量
     f32 Con_points[MAX_NUM_OF_POINT - 1][3];              // Control point list ，控制点序列
     f32 Bez_a[MAX_NUM_OF_POINT][3];                       // 参数 a ，分x、y、z方向
@@ -44,16 +44,17 @@ void Control_Point_Calculation(void)
 {
     /* 计算起点和终点的控制点 */
     int i = 0, j = 0;
-
+    printf("起点与终点控制点\n");
     for (i = 0; i < 3; i++)
     { // 第一个控制点
         Bez.Con_points[0][i] = Bez.Tar_Points[0][i] * (1 - CON_POINT_RATIO) + Bez.Tar_Points[2][i] * CON_POINT_RATIO;
         // 最后一个控制点
-        Bez.Con_points[MAX_NUM_OF_POINT - 2][i] =
-            Bez.Tar_Points[MAX_NUM_OF_POINT - 1][i] * (1 - CON_POINT_RATIO) +
-            Bez.Tar_Points[MAX_NUM_OF_POINT - 3][i] * CON_POINT_RATIO;
+        Bez.Con_points[Bez.Tar_P_Num - 2][i] =
+            Bez.Tar_Points[Bez.Tar_P_Num - 1][i] * (1 - CON_POINT_RATIO) +
+            Bez.Tar_Points[Bez.Tar_P_Num - 3][i] * CON_POINT_RATIO;
+        printf("%f   %f\n", Bez.Con_points[0][i], Bez.Con_points[Bez.Tar_P_Num - 2][i]);
     }
-
+    printf("----------------------------\n");
     /* 计算其余的控制点 */
     f32 BA_vec[3], BC_vec[3]; // 向量BA与BC
     f32 BA_len, BC_len;       // 向量模长
@@ -62,16 +63,23 @@ void Control_Point_Calculation(void)
     f32 K_vec[3];             // K = N X M
     f32 t1;                   // 求下一个点之间的控制点 所用的的参数，为正数
     f32 t2;                   // 求上一个点之间的控制点 所用的的参数，为负数
-    for (i = 2; i < MAX_NUM_OF_POINT - 1; i += 2)
+    for (i = 2; i < Bez.Tar_P_Num - 1; i += 2)
     {
+        printf("------------------\n");
+        printf(" %d    %d \n", i - 1, i);
         // 计算BA、BC，并且单位化
         for (j = 0; j < 3; j++)
         {
-            BA_vec[i] = Bez.Tar_Points[i - 2][j] - Bez.Tar_Points[i][j];
-            BC_vec[i] = Bez.Tar_Points[i + 2][j] - Bez.Tar_Points[i][j];
+            BA_vec[j] = Bez.Tar_Points[i - 2][j] - Bez.Tar_Points[i][j];
+            BC_vec[j] = Bez.Tar_Points[i + 2][j] - Bez.Tar_Points[i][j];
         }
         BA_len = Vector_Length(BA_vec);
         BC_len = Vector_Length(BC_vec);
+
+        printf("BA : %f  %f  %f\n", BA_vec[0], BA_vec[1], BA_vec[2]);
+        printf("BC : %f  %f  %f\n", BC_vec[0], BC_vec[1], BC_vec[2]);
+        printf("BAL: %f     BCL : %f\n", BA_len, BC_len);
+
         for (j = 0; j < 3; j++) // 单位化
         {
             BA_vec[j] = BA_vec[j] / BA_len;
@@ -86,17 +94,23 @@ void Control_Point_Calculation(void)
         }
         Cross_Product(N_vec, M_vec, K_vec); // 计算K
 
+        printf("N : %f  %f  %f\n", N_vec[0], N_vec[1], N_vec[2]);
+        printf("M : %f  %f  %f\n", M_vec[0], M_vec[1], M_vec[2]);
+        printf("K : %f  %f  %f\n", K_vec[0], K_vec[1], K_vec[2]);
+
         // 计算参数t1,t2
         t1 = CON_POINT_RATIO * BC_len / Vector_Length(K_vec);
         t2 = -CON_POINT_RATIO * BA_len / Vector_Length(K_vec);
 
         // 计算前后控制点
-        for (j = 0; i < 3; j++)
+        for (j = 0; j < 3; j++)
         {
             Bez.Con_points[i - 1][j] = Bez.Tar_Points[i][j] + K_vec[j] * t2;
             Bez.Con_points[i][j] = Bez.Tar_Points[i][j] + K_vec[j] * t1;
+            printf("%f   %f\n", Bez.Con_points[i - 1][j], Bez.Con_points[i][j]);
         }
     }
+    printf("结束\n");
 }
 
 /* 函数：Cross_Product
@@ -107,7 +121,7 @@ void Control_Point_Calculation(void)
 void Cross_Product(f32 A[3], f32 B[3], f32 C[3])
 {
     C[0] = A[1] * B[2] - A[2] * B[1];
-    C[1] = A[0] * B[2] - A[2] * B[0];
+    C[1] = -(A[0] * B[2] - A[2] * B[0]);
     C[2] = A[0] * B[1] - A[1] * B[0];
 }
 
@@ -134,32 +148,28 @@ f32 Vector_Length(f32 A[3])
  * */
 void Tnit_Bez_test(void)
 {
-    Bez.Tar_Points = (f32 **)malloc(sizeof(f32 *) * 7);
-    for (int i = 0; i < 5; ++i)
-    {
-        Bez.Tar_Points[i] = (f32 *)malloc(sizeof(f32) * 3);
-    }
     Bez.Tar_P_Num = 7;
 
     Bez.Tar_Points[0][0] = 0;
     Bez.Tar_Points[0][1] = 0;
     Bez.Tar_Points[0][2] = 0;
 
-    Bez.Tar_Points[2][0] = 4;
-    Bez.Tar_Points[2][1] = 16;
-    Bez.Tar_Points[2][2] = 4;
+    Bez.Tar_Points[2][0] = 0;
+    Bez.Tar_Points[2][1] = 15;
+    Bez.Tar_Points[2][2] = 5;
 
-    Bez.Tar_Points[4][0] = 15;
-    Bez.Tar_Points[4][1] = 5;
-    Bez.Tar_Points[4][2] = 10;
+    Bez.Tar_Points[4][0] = 20;
+    Bez.Tar_Points[4][1] = 0;
+    Bez.Tar_Points[4][2] = 15;
 
     Bez.Tar_Points[6][0] = 0;
     Bez.Tar_Points[6][1] = 0;
     Bez.Tar_Points[6][2] = 20;
 }
 
-void main()
+int main()
 {
     Tnit_Bez_test();
     Control_Point_Calculation();
+    return 0;
 }
