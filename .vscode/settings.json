@@ -22,7 +22,10 @@
         "istream": "cpp",
         "new": "cpp",
         "functional": "cpp",
-        "iosfwd": "cpp"
+        "iosfwd": "cpp",
+        "bitset": "cpp",
+        "list": "cpp",
+        "unordered_map": "cpp"
     },
     "C_Cpp.errorSquiggles": "Enabled",
     "MicroPython.executeButton": [
