@@ -12,6 +12,8 @@ typedef float f32;
 #define CURVATURE_POINT_NUM 8 // 各段求曲率的点个数
 #define CON_POINT_RATIO 0.4   // 控制点距中间点位置 与 两目标点位置的比值，Control point ratio
 
+f32 l1, l2, l3;
+
 typedef struct
 {
     f32 Tar_Points[MAX_NUM_OF_POINT][3];                           // Target point list ，目标点与中间点序列，指向MtoC里的 目标点序列
@@ -335,10 +337,11 @@ void len_compare()
         for (int j = 0; j < 3; j++)
         {
             len += pow(Bez.Tar_Points[i][j] - Bez.Tar_Points[i + 1][j], 2);
-            printf("           %f  %f\n", Bez.Tar_Points[i][j], Bez.Tar_Points[i + 1][j]);
+            //printf("           %f  %f\n", Bez.Tar_Points[i][j], Bez.Tar_Points[i + 1][j]);
         }
         len = sqrt(len);
         printf("%f  %f\n", len, Bez.Curve_Len[i]);
+        l1 += Bez.Curve_Len[i];
     }
 }
 
@@ -427,7 +430,10 @@ void Curve_Segment(void)
 
                 // 被限制的路程是两个贝塞尔曲线
 
-                VT.B_Piece[bk].p_start = sk + 1;
+                l3 += VT.Dis_Piece[sk].Piece_Dis;
+
+                VT.B_Piece[bk]
+                    .p_start = sk + 1;
                 VT.B_Piece[bk].b_start = i + 2;
 
                 i++;
@@ -465,8 +471,10 @@ void Curve_Segment(void)
             }
             // 曲率代表的一小段路程
             f32 curvature_dis =
-                (j == 0) ? Bez.To_Point_Curve_Len[i][j] : Bez.To_Point_Curve_Len[i][j] - Bez.To_Point_Curve_Len[i][j - 1];
+                (j == CURVATURE_POINT_NUM - 1) ? Bez.Curve_Len[i] - Bez.To_Point_Curve_Len[i][j]
+                                               : Bez.To_Point_Curve_Len[i][j + 1] - Bez.To_Point_Curve_Len[i][j];
             VT.Dis_Piece[sk].Piece_Dis += curvature_dis;
+            l3 += curvature_dis;
         }
     }
 
@@ -537,6 +545,11 @@ int main()
     VT_Init();
     Curve_Segment();
     Endpoint_Speed_Calculation();
+
+    for (int i = 0; i < VT.piece_num; i++)
+    {
+        l2 += VT.Dis_Piece[i].Piece_Dis;
+    }
 
     printf("结束\n");
     return 0;
