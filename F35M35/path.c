@@ -42,6 +42,53 @@ void Curvature_and_Length_Calculation(void);
 
 Bezier_Curve Bez;
 
+// 以下为 Distance_Piece.speed_mode 的选项
+#define UNIFORO_MOTION 0 // 匀速运动，uniform motion
+#define VARIBLE_ACC 1    // 变变速运动，Variable acceleration
+#define SIGLE_ACC 2      // 单次变速运动
+
+#define CURVATURE_LIMIT 2 // 曲率限制，高于则限速
+
+#define LOW_SPEED_LIMIT 1 // 低速限制（m/s），Low speed limit
+#define ACC_LIMIT 3       // 加速度限制，acceleration limit
+
+typedef struct
+{
+    f32 Piece_Dis;     // 本片的路程 , piece distance
+    f32 Cur_Total_Dis; // 前面的片的路程之和 , current total distance
+    u32 Speed_Mode;    // 速度模式，有宏定义选项
+    f32 v1;
+    f32 v2;
+    f32 v3;
+    f32 Acc_Limit; // 加速度限制，变速运动可用
+    f32 Uni_Speed; // 匀速速度，匀速运动可用，uniform speed
+    f32 duration;  // 持续时间
+
+} Distance_Piece; // 路程片结构体
+
+typedef struct
+{
+    int start; // [start,end)
+    int end;
+    f32 time;
+    f32 dis;
+} Big_Piece;
+
+typedef struct
+{
+    f32 Speed_Limit[30];                            // 具体点的速度限制
+    f32 Acc_Limit[30];                              // 具体点对应的段的加速度限制
+    f32 Time_Limit[30];                             // 具体点的时间限制
+    Distance_Piece Dis_Piece[MAX_NUM_OF_POINT - 1]; // 路程片结构体
+    Big_Piece B_Piece[6];                           // 大片 结构体
+    int piece_num;                                  // 路程片个数
+    int Bpiece_num;                                 // 大片的个数
+    int32 cur_piece;                                // 当前路程片序号
+    u32 time_in_piece;                              // 当前片内的时间
+} V_T_Diagram;                                      // v_t图 的结构体
+
+V_T_Diagram VT;
+
 /* 函数：Control_Point_Calculation
  * 功能：计算出控制点位置
  * 参数：void
@@ -282,6 +329,172 @@ void len_compare()
         }
         len = sqrt(len);
         printf("%f  %f\n", len, Bez.Curve_Len[i]);
+    }
+}
+
+/* 函数：VT_Init
+ * 功能：速度结构体初始化
+ * 参数：void
+ * 返回值：void
+ * */
+void VT_Init(void)
+{
+    int i = 0;
+    VT.Dis_Piece[0].v1 = 0; //初始速度为0
+    // 将速度限制初始化为-1,>0表示有效
+    for (i = 0; i < 30; i++)
+    {
+        VT.Speed_Limit[i] = -1;
+        VT.Acc_Limit[i] = -1;
+    }
+    // 路程片速度初始化为0
+    for (i = 0; i < Bez.Tar_P_Num - 1; i++)
+    {
+        VT.Dis_Piece[i].Piece_Dis = 0;
+    }
+
+    VT.B_Piece[0].start = 0;
+}
+
+/* 函数：Curve_Segment
+ * 功能：曲线分段
+ * 参数：void
+ * 返回值：void
+ * */
+void Curve_Segment(void)
+{
+    int i = 0;             // 贝塞尔结构体序号
+    int j = 0;             //曲率点序号
+    int bk = 0;            // 大片路程片序号.big
+    int sk = -1;           // 小路程片序号
+    int p_f = 0;           //0为低速段，1为变速段
+    f32 big_total_dis = 0; // 大片路程片的距离
+    // 遍历所有曲线
+    for (i = 0; i < Bez.Tar_P_Num - 1; i++)
+    {
+        if (VT.Speed_Limit[i] > 0) //有速度限制（接抛球）
+        {
+            // 表示下一个路程段是新的
+            p_f = 0;
+            // 上一个大片路程片的end序号
+            VT.B_Piece[bk].end = sk + 1;
+            // 上一个大片路程片的时间
+            if (bk == 0)
+            {
+                VT.B_Piece[bk].time = VT.Time_Limit[i];
+            }
+            else
+            {
+                VT.B_Piece[bk].time = VT.Time_Limit[i] - VT.Time_Limit[VT.B_Piece[bk - 1].end];
+            }
+
+            bk++;
+
+            // 大片路程片的start序号
+            VT.B_Piece[bk].start = sk + 1;
+
+            // 读 速度限制
+            VT.Dis_Piece[sk + 1].v1 = VT.Speed_Limit[i];
+
+            if (VT.Acc_Limit[i] > 0) // 限制起点及其中的加速度,接球
+            {
+                sk++;
+                // 路程片所需的变量都已得到
+                VT.Dis_Piece[sk].Speed_Mode = SIGLE_ACC;
+                VT.Dis_Piece[sk].Piece_Dis = Bez.Curve_Len[i] + Bez.Curve_Len[i + 1];
+                VT.Dis_Piece[sk].Acc_Limit = VT.Acc_Limit[i];
+                VT.Dis_Piece[sk].v3 = sqrt(
+                    pow(VT.Dis_Piece[sk].v1, 2) - 4 * VT.Dis_Piece[sk].Acc_Limit * VT.Dis_Piece[sk].Piece_Dis / 3);
+                VT.Dis_Piece[sk].duration = 3 * (VT.Dis_Piece[sk + 1].v1 - VT.Dis_Piece[sk + 1].v3) / (2 * VT.Dis_Piece[sk].Acc_Limit);
+
+                // 被限制的路程是两个贝塞尔曲线
+                i++;
+
+                continue;
+            }
+            else // 只限制速度，抛球
+            {
+                VT.Dis_Piece[sk].v3 = VT.Dis_Piece[sk + 1].v1;
+            }
+        }
+
+        //遍历所有曲率点
+        for (j = 0; j < CURVATURE_POINT_NUM; j++)
+        {
+            if (Bez.Curvature[i][j] < CURVATURE_LIMIT) // 不限速
+            {
+                if (p_f == 0) //第一个小曲率段
+                {
+                    p_f = 1;
+                    sk++;
+                    VT.Dis_Piece[sk].Speed_Mode = VARIBLE_ACC;
+                }
+            }
+            else // 限速
+            {
+                if (p_f == 1) //第一个小曲率段
+                {
+                    p_f = 0;
+                    sk++;
+                    VT.Dis_Piece[sk].Speed_Mode = UNIFORO_MOTION;
+                }
+            }
+            // 曲率代表的一小段路程
+            f32 curvature_dis =
+                (j == 0) ? Bez.To_Point_Curve_Len[i][j] : Bez.To_Point_Curve_Len[i][j] - Bez.To_Point_Curve_Len[i][j - 1];
+            VT.Dis_Piece[sk].Piece_Dis += curvature_dis;
+        }
+    }
+
+    /* 对最后一个大片做处理 ，最终位置的时间必须给定*/
+    // 上一个大片路程片的end序号
+    VT.B_Piece[bk].end = sk + 1;
+    // 上一个大片路程片的时间
+    if (bk == 0)
+    {
+        VT.B_Piece[bk].time = VT.Time_Limit[i];
+    }
+    else
+    {
+        VT.B_Piece[bk].time = VT.Time_Limit[i] - VT.Time_Limit[VT.B_Piece[bk - 1].end];
+    }
+    VT.piece_num = sk + 1;
+    VT.Bpiece_num = bk + 1;
+}
+
+/* 函数：Endpoint_Speed_Calculation
+ * 功能：端点速度计算
+ * 参数：void
+ * 返回值：void
+ * */
+void Endpoint_Speed_Calculation(void)
+{
+    int i = 0;
+    for (i = 0; i < VT.piece_num; i++)
+    {
+        if (VT.Dis_Piece[i].Speed_Mode != SIGLE_ACC)
+        {
+            if (VT.Dis_Piece[i].v1 != 0) // 只限制了一个点的速度的情况
+            {
+                VT.Dis_Piece[i - 1].v3 = VT.Dis_Piece[i].v1;
+                VT.Dis_Piece[i].v3 = LOW_SPEED_LIMIT;
+                VT.Dis_Piece[i].Acc_Limit = ACC_LIMIT;
+            }
+            else // 普通情况，始末都是一样的速度
+            {
+                VT.Dis_Piece[i].v1 = LOW_SPEED_LIMIT;
+                VT.Dis_Piece[i].v3 = LOW_SPEED_LIMIT;
+                VT.Dis_Piece[i].Acc_Limit = ACC_LIMIT;
+            }
+        }
+    }
+    for (i = 0; i < VT.piece_num; i++)
+    {
+        if (VT.Dis_Piece[i].Speed_Mode == SIGLE_ACC)
+        {
+            VT.Dis_Piece[i - 1].v3 = VT.Dis_Piece[i].v1;
+            VT.Dis_Piece[i + 1].v1 = VT.Dis_Piece[i].v3;
+        }
     }
 }
 
