@@ -68,8 +68,10 @@ typedef struct
 
 typedef struct
 {
-    int start; // [start,end)
-    int end;
+    int p_start; // [start,end)
+    int p_end;
+    int b_start; // [start,end)
+    int b_end;
     f32 time;
     f32 dis;
 } Big_Piece;
@@ -297,23 +299,31 @@ void Curvature_and_Length_Calculation(void)
  * */
 void Tnit_Bez_test(void)
 {
-    Bez.Tar_P_Num = 7;
+    Bez.Tar_P_Num = 11;
 
     Bez.Tar_Points[0][0] = 0;
     Bez.Tar_Points[0][1] = 0;
     Bez.Tar_Points[0][2] = 0;
 
-    Bez.Tar_Points[2][0] = 0;
-    Bez.Tar_Points[2][1] = 15;
-    Bez.Tar_Points[2][2] = 5;
+    Bez.Tar_Points[2][0] = 5;
+    Bez.Tar_Points[2][1] = 25;
+    Bez.Tar_Points[2][2] = 0;
 
-    Bez.Tar_Points[4][0] = 20;
-    Bez.Tar_Points[4][1] = 0;
-    Bez.Tar_Points[4][2] = 15;
+    Bez.Tar_Points[4][0] = 10;
+    Bez.Tar_Points[4][1] = 20;
+    Bez.Tar_Points[4][2] = 0;
 
-    Bez.Tar_Points[6][0] = 0;
-    Bez.Tar_Points[6][1] = 0;
-    Bez.Tar_Points[6][2] = 20;
+    Bez.Tar_Points[6][0] = 25;
+    Bez.Tar_Points[6][1] = 15;
+    Bez.Tar_Points[6][2] = 0;
+
+    Bez.Tar_Points[8][0] = 20;
+    Bez.Tar_Points[8][1] = 30;
+    Bez.Tar_Points[8][2] = 0;
+
+    Bez.Tar_Points[10][0] = 0;
+    Bez.Tar_Points[10][1] = 0;
+    Bez.Tar_Points[10][2] = 0;
 }
 
 void len_compare()
@@ -353,7 +363,13 @@ void VT_Init(void)
         VT.Dis_Piece[i].Piece_Dis = 0;
     }
 
-    VT.B_Piece[0].start = 0;
+    VT.B_Piece[0].p_start = 0;
+    VT.B_Piece[0].b_start = 0;
+
+    VT.Speed_Limit[6] = 6;
+    VT.Acc_Limit[6] = 2;
+    VT.Time_Limit[6] = 10;
+    VT.Time_Limit[10] = 20;
 }
 
 /* 函数：Curve_Segment
@@ -377,7 +393,8 @@ void Curve_Segment(void)
             // 表示下一个路程段是新的
             p_f = 0;
             // 上一个大片路程片的end序号
-            VT.B_Piece[bk].end = sk + 1;
+            VT.B_Piece[bk].p_end = sk + 1;
+            VT.B_Piece[bk].b_end = i;
             // 上一个大片路程片的时间
             if (bk == 0)
             {
@@ -385,13 +402,14 @@ void Curve_Segment(void)
             }
             else
             {
-                VT.B_Piece[bk].time = VT.Time_Limit[i] - VT.Time_Limit[VT.B_Piece[bk - 1].end];
+                VT.B_Piece[bk].time = VT.Time_Limit[i] - VT.Time_Limit[VT.B_Piece[bk - 1].p_end];
             }
 
             bk++;
 
             // 大片路程片的start序号
-            VT.B_Piece[bk].start = sk + 1;
+            //VT.B_Piece[bk].p_start = sk + 1;
+            //VT.B_Piece[bk].b_start = i;
 
             // 读 速度限制
             VT.Dis_Piece[sk + 1].v1 = VT.Speed_Limit[i];
@@ -408,13 +426,19 @@ void Curve_Segment(void)
                 VT.Dis_Piece[sk].duration = 3 * (VT.Dis_Piece[sk + 1].v1 - VT.Dis_Piece[sk + 1].v3) / (2 * VT.Dis_Piece[sk].Acc_Limit);
 
                 // 被限制的路程是两个贝塞尔曲线
-                i++;
 
+                VT.B_Piece[bk].p_start = sk + 1;
+                VT.B_Piece[bk].b_start = i + 2;
+
+                i++;
                 continue;
             }
             else // 只限制速度，抛球
             {
                 VT.Dis_Piece[sk].v3 = VT.Dis_Piece[sk + 1].v1;
+
+                VT.B_Piece[bk].p_start = sk + 1;
+                VT.B_Piece[bk].b_start = i;
             }
         }
 
@@ -448,7 +472,7 @@ void Curve_Segment(void)
 
     /* 对最后一个大片做处理 ，最终位置的时间必须给定*/
     // 上一个大片路程片的end序号
-    VT.B_Piece[bk].end = sk + 1;
+    VT.B_Piece[bk].p_end = sk + 1;
     // 上一个大片路程片的时间
     if (bk == 0)
     {
@@ -456,7 +480,7 @@ void Curve_Segment(void)
     }
     else
     {
-        VT.B_Piece[bk].time = VT.Time_Limit[i] - VT.Time_Limit[VT.B_Piece[bk - 1].end];
+        VT.B_Piece[bk].time = VT.Time_Limit[i] - VT.Time_Limit[VT.B_Piece[bk - 1].b_end];
     }
     VT.piece_num = sk + 1;
     VT.Bpiece_num = bk + 1;
@@ -496,6 +520,8 @@ void Endpoint_Speed_Calculation(void)
             VT.Dis_Piece[i + 1].v1 = VT.Dis_Piece[i].v3;
         }
     }
+    VT.Dis_Piece[0].v1 = 0;
+    VT.Dis_Piece[VT.piece_num - 1].v3 = 0;
 }
 
 int main()
@@ -507,6 +533,11 @@ int main()
     Curves_Length_Calculation();
     len_compare();
     Curvature_and_Length_Calculation();
+
+    VT_Init();
+    Curve_Segment();
+    Endpoint_Speed_Calculation();
+
     printf("结束\n");
     return 0;
 }
