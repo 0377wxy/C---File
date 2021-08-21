@@ -8,6 +8,11 @@ typedef unsigned int u16;
 typedef unsigned char u8;
 typedef float f32;
 
+//各轴运行距离限制
+#define MAXLEN_X 80000
+#define MAXLEN_Y 80000
+#define MAXLEN_Z 80000
+
 #define MAX_NUM_OF_POINT 30   // 点个数上限
 #define CURVATURE_POINT_NUM 8 // 各段求曲率的点个数
 #define CON_POINT_RATIO 0.4   // 控制点距中间点位置 与 两目标点位置的比值，Control point ratio
@@ -52,10 +57,10 @@ Bezier_Curve Bez;
 #define VARIBLE_ACC 1    // 变变速运动，Variable acceleration
 #define SIGLE_ACC 2      // 单次变速运动
 
-#define CURVATURE_LIMIT 2.5 // 曲率限制，高于则限速
+#define CURVATURE_LIMIT 1.5 // 曲率限制，高于则限速
 
 #define LOW_SPEED_LIMIT 1 // 低速限制（m/s），Low speed limit
-#define ACC_LIMIT 6       // 加速度限制，acceleration limit
+#define ACC_LIMIT 5       // 加速度限制，acceleration limit
 
 #define PREDICT_INTERVALS 0.1
 
@@ -407,7 +412,7 @@ void VT_Init(void)
     VT.Speed_Limit[6] = 6;
     VT.Acc_Limit[6] = 1;
     VT.Time_Limit[6] = 20;
-    VT.Time_Limit[10] = 30;
+    VT.Time_Limit[10] = 35;
 }
 
 /* 函数：Curve_Segment
@@ -939,7 +944,7 @@ void Get_Speed_and_Len(f32 *speed, f32 *len)
         // 终止条件
         if (VT.cur_piece == VT.piece_num)
         {
-            stop_f = 1;
+            R_data.stop_f = 1;
         }
     }
 }
@@ -1000,7 +1005,8 @@ void Immediate_Point_Direction_Calculation(void)
  */
 void Immediate_Point_Speed_Calculation(void)
 {
-    ;
+    Get_Speed_and_Len(&R_data.imm_speed, &R_data.next_move_len);
+    //printf("                      %f   %f\n", R_data.imm_speed, R_data.next_move_len);
 }
 
 /* 函数名：Speed_Vector_Calculation
@@ -1015,6 +1021,7 @@ void Speed_Vector_Calculation(void)
     {
         R_data.imm_speed_vec[i] = R_data.imm_speed * R_data.imm_dir[i];
     }
+    printf("%f   %f    %f    ", R_data.imm_speed_vec[0], R_data.imm_speed_vec[1], R_data.imm_speed_vec[2]);
 }
 
 /* 函数名：Next_Pos_Calculation
@@ -1054,8 +1061,10 @@ void Next_Pos_Calculation(void)
         {
             ts = tm;
         }
-    } while (fabs(len_t - com_len) < LENGTH_ACCURACY);
+    } while (fabs(len_t - com_len) > LENGTH_ACCURACY);
     Bez.t = tm;
+    l2 += R_data.next_move_len;
+    printf("%f   %f   %f   %f\n", Bez.t, R_data.imm_curve_len, Bez.Curve_Len[Bez.order], l2);
     // 计算下一点位置
     int i = 0;
     for (i = 0; i < 3; i++)
@@ -1063,10 +1072,12 @@ void Next_Pos_Calculation(void)
         R_data.next_pos[i] = Bez.Bez_a[Bez.order][i] * Bez.t * Bez.t + Bez.Bez_b[Bez.order][i] * Bez.t + Bez.Bez_c[Bez.order][i];
     }
     // 检验下一点位置是否合法
+    /*
     if (R_data.next_pos[0] < 0 || R_data.next_pos[0] > MAXLEN_X || R_data.next_pos[1] < 0 || R_data.next_pos[1] > MAXLEN_Y || R_data.next_pos[2] < 0 || R_data.next_pos[2] > MAXLEN_Z)
     {
         R_data.stop_f = 1;
     }
+    */
 }
 
 /* 函数名：Predict_Speed_and_Position
@@ -1099,14 +1110,12 @@ int main()
 
     VT_Calculation();
     printf("VT计算完成\n");
-    f32 spd, len, len_total = 0;
-    while (stop_f == 0)
-    {
-        Get_Speed_and_Len(&spd, &len);
-        len_total += len;
-        printf("%f  %f  %f\n", spd, len, len_total);
-    }
 
+    while (R_data.stop_f == 0)
+    {
+        Predict_Speed_and_Position();
+    }
+    printf("%f\n", l1);
     printf("结束\n");
     return 0;
 }
