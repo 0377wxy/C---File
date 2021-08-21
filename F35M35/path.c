@@ -17,7 +17,7 @@ typedef float f32;
 #define CURVATURE_POINT_NUM 8 // 各段求曲率的点个数
 #define CON_POINT_RATIO 0.4   // 控制点距中间点位置 与 两目标点位置的比值，Control point ratio
 
-f32 l1, l2, l3;
+f32 l1, l2, l3, l4;
 int stop_f = 0;
 
 typedef struct
@@ -57,7 +57,7 @@ Bezier_Curve Bez;
 #define VARIBLE_ACC 1    // 变变速运动，Variable acceleration
 #define SIGLE_ACC 2      // 单次变速运动
 
-#define CURVATURE_LIMIT 1.5 // 曲率限制，高于则限速
+#define CURVATURE_LIMIT 2.5 // 曲率限制，高于则限速
 
 #define LOW_SPEED_LIMIT 1 // 低速限制（m/s），Low speed limit
 #define ACC_LIMIT 5       // 加速度限制，acceleration limit
@@ -937,10 +937,12 @@ void Get_Speed_and_Len(f32 *speed, f32 *len)
 
     // 时间满，则切换下一个时间片
     VT.time_in_piece = next_time;
+    l4 += *len;
     if (VT.time_in_piece > VT.Dis_Piece[VT.cur_piece].duration)
     {
         VT.time_in_piece = VT.time_in_piece - VT.Dis_Piece[VT.cur_piece].duration;
         VT.cur_piece++;
+        l4 = 0;
         // 终止条件
         if (VT.cur_piece == VT.piece_num)
         {
@@ -1064,7 +1066,7 @@ void Next_Pos_Calculation(void)
     } while (fabs(len_t - com_len) > LENGTH_ACCURACY);
     Bez.t = tm;
     l2 += R_data.next_move_len;
-    printf("%f   %f   %f   %f\n", Bez.t, R_data.imm_curve_len, Bez.Curve_Len[Bez.order], l2);
+    printf("%f   %f   %f   %f  %d  %f %f\n", Bez.t, R_data.imm_curve_len, Bez.Curve_Len[Bez.order], l2, VT.cur_piece, l4, VT.Dis_Piece[VT.cur_piece].Piece_Dis);
     // 计算下一点位置
     int i = 0;
     for (i = 0; i < 3; i++)
@@ -1110,12 +1112,20 @@ int main()
 
     VT_Calculation();
     printf("VT计算完成\n");
-
+    /*
+    f32 spd, len, len_total = 0;
+    while (R_data.stop_f == 0)
+    {
+        Get_Speed_and_Len(&spd, &len);
+        len_total += len;
+        printf("%f  %f  %f\n", spd, len, len_total);
+    }
+    */
     while (R_data.stop_f == 0)
     {
         Predict_Speed_and_Position();
     }
-    printf("%f\n", l1);
+    printf("%f %f\n", l1, l3);
     printf("结束\n");
     return 0;
 }
