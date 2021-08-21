@@ -13,6 +13,7 @@ typedef float f32;
 #define CON_POINT_RATIO 0.4   // 控制点距中间点位置 与 两目标点位置的比值，Control point ratio
 
 f32 l1, l2, l3;
+int stop_f = 0;
 
 typedef struct
 {
@@ -49,10 +50,12 @@ Bezier_Curve Bez;
 #define VARIBLE_ACC 1    // 变变速运动，Variable acceleration
 #define SIGLE_ACC 2      // 单次变速运动
 
-#define CURVATURE_LIMIT 2 // 曲率限制，高于则限速
+#define CURVATURE_LIMIT 2.5 // 曲率限制，高于则限速
 
 #define LOW_SPEED_LIMIT 1 // 低速限制（m/s），Low speed limit
-#define ACC_LIMIT 3       // 加速度限制，acceleration limit
+#define ACC_LIMIT 6       // 加速度限制，acceleration limit
+
+#define PREDICT_INTERVALS 0.1
 
 typedef struct
 {
@@ -62,6 +65,9 @@ typedef struct
     f32 v1;
     f32 v2;
     f32 v3;
+    f32 t1;
+    f32 t2;
+    f32 t3;
     f32 Acc_Limit; // 加速度限制，变速运动可用
     f32 Uni_Speed; // 匀速速度，匀速运动可用，uniform speed
     f32 duration;  // 持续时间
@@ -88,7 +94,7 @@ typedef struct
     int piece_num;                                  // 路程片个数
     int Bpiece_num;                                 // 大片的个数
     int32 cur_piece;                                // 当前路程片序号
-    u32 time_in_piece;                              // 当前片内的时间
+    f32 time_in_piece;                              // 当前片内的时间
 } V_T_Diagram;                                      // v_t图 的结构体
 
 V_T_Diagram VT;
@@ -370,9 +376,9 @@ void VT_Init(void)
     VT.B_Piece[0].b_start = 0;
 
     VT.Speed_Limit[6] = 6;
-    VT.Acc_Limit[6] = 2;
-    VT.Time_Limit[6] = 10;
-    VT.Time_Limit[10] = 20;
+    VT.Acc_Limit[6] = 1;
+    VT.Time_Limit[6] = 20;
+    VT.Time_Limit[10] = 30;
 }
 
 /* 函数：Curve_Segment
@@ -426,7 +432,7 @@ void Curve_Segment(void)
                 VT.Dis_Piece[sk].Acc_Limit = VT.Acc_Limit[i];
                 VT.Dis_Piece[sk].v3 = sqrt(
                     pow(VT.Dis_Piece[sk].v1, 2) - 4 * VT.Dis_Piece[sk].Acc_Limit * VT.Dis_Piece[sk].Piece_Dis / 3);
-                VT.Dis_Piece[sk].duration = 3 * (VT.Dis_Piece[sk + 1].v1 - VT.Dis_Piece[sk + 1].v3) / (2 * VT.Dis_Piece[sk].Acc_Limit);
+                VT.Dis_Piece[sk].duration = 3 * (VT.Dis_Piece[sk].v1 - VT.Dis_Piece[sk].v3) / (2 * VT.Dis_Piece[sk].Acc_Limit);
 
                 // 被限制的路程是两个贝塞尔曲线
 
@@ -532,6 +538,405 @@ void Endpoint_Speed_Calculation(void)
     VT.Dis_Piece[VT.piece_num - 1].v3 = 0;
 }
 
+/* 函数名：Pre_Piece_Cal
+ * 功能：对除最后一段以外的所有段进行速度规划
+ * 参数： f32 Piece_Dis  路程片的长度
+ *       f32 Start_Speed   路程片的起始速度
+ *       f32 End_Speed   路程片的结束速度
+ *       f32* Acc   路程片的加速度
+ *       f32* Uni_Spd  路程片的匀速度
+ *       f32* Duration   路程片的持续时间
+ * 返回值：int 运动模式  （1：三段速，2：单段速）
+ */
+int Pre_Piece_Cal(f32 Piece_Dis, f32 Start_Speed, f32 End_Speed, f32 *Acc,
+                  f32 *Uni_Spd, f32 *Duration)
+{
+    f32 spd = sqrtf(
+        (4 * (*Acc) * Piece_Dis + 3 * (powf(Start_Speed, 2) + powf(End_Speed, 2))) / 6);
+    if (spd > Start_Speed && spd > End_Speed)
+    {
+        *Uni_Spd = spd;
+        *Duration = 3 * (2 * (*Uni_Spd) - Start_Speed - End_Speed) / (2 * (*Acc));
+        return 1;
+    }
+
+    spd = sqrtf(
+        -(4 * (*Acc) * Piece_Dis - 3 * (powf(Start_Speed, 2) + powf(End_Speed, 2))) / 6);
+    if (spd < Start_Speed && spd < End_Speed)
+    {
+        *Uni_Spd = spd;
+        *Duration = -3 * (2 * (*Uni_Spd) - Start_Speed - End_Speed) / (2 * (*Acc));
+        return 1;
+    }
+    else
+    {
+        *Acc = 3 * fabsf(powf(End_Speed, 2) - powf(Start_Speed, 2)) / (4 * Piece_Dis);
+        *Duration = 3 * fabsf(Start_Speed - End_Speed) / (2 * (*Acc));
+        return 2;
+    }
+}
+
+/* 函数名：Last_Piece_Cal
+ * 功能：对最后一个路程片进行速度规划
+ * 参数： f32 Piece_Dis  路程片的长度
+ *       f32 Start_Speed   路程片的起始速度
+ *       f32 End_Speed   路程片的结束速度
+ *       f32* Acc   路程片的加速度
+ *       f32* Uni_Spd  路程片的匀速度
+ *       f32* Duration   路程片的持续时间
+ * 返回值：void
+ */
+
+void Last_Piece_Cal(f32 Piece_Dis, f32 Start_Speed, f32 End_Speed, f32 *Acc,
+                    f32 *Uni_Spd, f32 *Duration)
+{
+    f32 Uni1;
+    f32 Uni2;
+    Uni1 = (Piece_Dis - (3 * (powf(End_Speed, 2) - powf(Start_Speed, 2)) / (4 * (*Acc)))) / (*Duration - (3 * (End_Speed - Start_Speed)) / (2 * (*Acc)));
+    if (Uni1 > Start_Speed && Uni1 < End_Speed)
+    {
+        *Uni_Spd = Uni1;
+        return;
+    }
+
+    Uni1 = Piece_Dis - (3 * (powf(Start_Speed, 2) - powf(End_Speed, 2)) / (4 * (*Acc))) / (*Duration - (3 * (Start_Speed - End_Speed)) / (2 * (*Acc)));
+    if (Uni1 < Start_Speed && Uni1 > End_Speed)
+    {
+        *Uni_Spd = Uni1;
+        return;
+    }
+
+    f32 a = 3.0 / (-2 * (*Acc));
+    f32 b = *Duration + (3 * (Start_Speed + End_Speed) / (2 * (*Acc)));
+    f32 c = -(Piece_Dis + (3 * (powf(Start_Speed, 2) + powf(End_Speed, 2))) / (4 * (*Acc)));
+    Uni1 = (-b + sqrtf(powf(b, 2) - 4 * a * c)) / (2 * a);
+    Uni2 = (-b - sqrtf(powf(b, 2) - 4 * a * c)) / (2 * a);
+    if ((Uni1 > Start_Speed && Uni1 > End_Speed &&
+         *Duration - 3 * fabs(Start_Speed - Uni1) / (2 * *Acc) - 3 * fabs(End_Speed - Uni1) / (2 * *Acc) > 0) ||
+        (Uni2 > Start_Speed && Uni2 > End_Speed &&
+         *Duration - 3 * fabs(Start_Speed - Uni2) / (2 * *Acc) - 3 * fabs(End_Speed - Uni2) / (2 * *Acc) > 0))
+    {
+        *Uni_Spd = Uni1 > Start_Speed && Uni1 > End_Speed ? Uni1 : Uni2;
+        return;
+    }
+
+    a = 3.0 / (2 * (*Acc));
+    b = *Duration + (3 * (-Start_Speed - End_Speed) / (2 * (*Acc)));
+    c =
+        -(Piece_Dis + (3 * (-powf(Start_Speed, 2) - powf(End_Speed, 2))) / (4 * (*Acc)));
+    Uni1 = (-b + sqrtf(powf(b, 2) - 4 * a * c)) / (2 * a);
+    Uni2 = (-b - sqrtf(powf(b, 2) - 4 * a * c)) / (2 * a);
+    if ((Uni1 > 0 && Uni1 < Start_Speed && Uni1<End_Speed && * Duration - 3 * fabs(Start_Speed - Uni1) / (2 * *Acc) - 3 * fabs(End_Speed - Uni1) / (2 * *Acc)> 0) ||
+        (Uni2 > 0 && Uni2 < Start_Speed && Uni2<End_Speed && * Duration - 3 * fabs(Start_Speed - Uni2) / (2 * *Acc) - 3 * fabs(End_Speed - Uni2) / (2 * *Acc)> 0))
+    {
+        *Uni_Spd = Uni1 < Start_Speed && Uni1 < End_Speed ? Uni1 : Uni2;
+        return;
+    }
+    printf("--------计算错误\n");
+}
+
+/* 函数：Speed_Planning_in_Piece
+ * 功能：段内速度规划
+ * 参数：void
+ * 返回值：void
+ * */
+void Speed_Planning_in_Piece(void)
+{
+    int i = 0;          // 大片的序号
+    int j = 0;          // 路程片的序号
+    f32 time_total = 0; // 记录大片中已用的时间
+
+    for (i = 0; i < VT.Bpiece_num; i++)
+    {
+        time_total = 0;
+        /* 处理大片里的前几个路程片 */
+        for (j = VT.B_Piece[i].p_start; j < VT.B_Piece[i].p_end - 1; j++)
+        {
+            // 被限制速度的 匀速段
+            if (VT.Dis_Piece[j].Speed_Mode == UNIFORO_MOTION)
+            {
+                VT.Dis_Piece[j].duration = VT.Dis_Piece[j].Piece_Dis / VT.Dis_Piece[j].v1;
+            }
+            // 普通段
+            else
+            {
+                int changed_f = Pre_Piece_Cal(VT.Dis_Piece[j].Piece_Dis,
+                                              VT.Dis_Piece[j].v1,
+                                              VT.Dis_Piece[j].v3,
+                                              &VT.Dis_Piece[j].Acc_Limit,
+                                              &VT.Dis_Piece[j].v2,
+                                              &VT.Dis_Piece[j].duration);
+                // 还是 三段速 , 其实只有两段
+                if (changed_f == VARIBLE_ACC)
+                {
+                    // 计算两段各自的时间
+                    VT.Dis_Piece[j].t1 = 3 * fabs(VT.Dis_Piece[j].v1 - VT.Dis_Piece[j].v2) / (2 * VT.Dis_Piece[j].Acc_Limit);
+                    VT.Dis_Piece[j].t3 = 3 * fabs(VT.Dis_Piece[j].v2 - VT.Dis_Piece[j].v3) / (2 * VT.Dis_Piece[j].Acc_Limit);
+                }
+                // 变成 单段速
+                else
+                {
+                    VT.Dis_Piece[j].Speed_Mode = SIGLE_ACC;
+                }
+            }
+            time_total += VT.Dis_Piece[j].duration;
+        }
+
+        /* 处理大片中的最后一个路程片 */
+        // 算出剩余时间
+        VT.Dis_Piece[j].duration = VT.B_Piece[i].time - time_total;
+        // 求匀速的速度
+        Last_Piece_Cal(VT.Dis_Piece[j].Piece_Dis, VT.Dis_Piece[j].v1,
+                       VT.Dis_Piece[j].v3, &VT.Dis_Piece[j].Acc_Limit,
+                       &VT.Dis_Piece[j].v2, &VT.Dis_Piece[j].duration);
+        // 计算三段各自的时间
+        VT.Dis_Piece[j].t1 = 3 * fabs(VT.Dis_Piece[j].v1 - VT.Dis_Piece[j].v2) / (2 * VT.Dis_Piece[j].Acc_Limit);
+        VT.Dis_Piece[j].t3 = 3 * fabs(VT.Dis_Piece[j].v2 - VT.Dis_Piece[j].v3) / (2 * VT.Dis_Piece[j].Acc_Limit);
+        VT.Dis_Piece[j].t2 = VT.Dis_Piece[j].duration - VT.Dis_Piece[j].t1 - VT.Dis_Piece[j].t3;
+    }
+}
+
+/* 函数：Function_V
+ * 功能：函数f = v（t）
+ * 参数：f32 t                         参数 时间
+ *     f32 v_s,f32 v_e,f32 t_m
+ * 返回值：f32                      对应速度
+ * */
+f32 Function_V(f32 t, f32 v_s, f32 v_e, f32 t_m)
+{
+    f32 a1 = (v_s - v_e) * t * t / (t_m * t_m);
+    return v_s - 3 * a1 + 2 * a1 * t / t_m;
+}
+
+/* 函数：Function_S
+ * 功能：函数f = s（t）
+ * 参数：f32 t                         参数 时间
+ *     f32 v_s,f32 v_e,f32 t_m
+ * 返回值：f32                      对应路程（相对t=0）
+ * */
+f32 Function_S(f32 t, f32 v_s, f32 v_e, f32 t_m)
+{
+    f32 a1 = (v_s - v_e) * pow(t, 3) / (t_m * t_m);
+    return v_s * t - a1 + a1 * t / (2 * t_m);
+}
+
+/* 函数：Designated_Distance
+ * 功能：求被指定的一段路程，给定的时间必须是同一个运动情况内的
+ * 参数：int piece_oeder    路程片序号
+ *     f32 t_s ,f32 t_e   始末时间
+ * 返回值：f32              路程长度
+ * */
+f32 Designated_Distance(int piece_oeder, f32 t_s, f32 t_e)
+{
+    // 被限速的匀速情况
+    if (VT.Dis_Piece[piece_oeder].Speed_Mode == UNIFORO_MOTION)
+    {
+        return (t_e - t_s) * VT.Dis_Piece[piece_oeder].v1;
+    }
+    // 三段变速情况
+    else if (VT.Dis_Piece[piece_oeder].Speed_Mode == VARIBLE_ACC)
+    {
+        // 三段中的 第一段
+        if (t_s < VT.Dis_Piece[piece_oeder].t1)
+        {
+            return Function_S(t_e, VT.Dis_Piece[piece_oeder].v1,
+                              VT.Dis_Piece[piece_oeder].v2,
+                              VT.Dis_Piece[piece_oeder].t1) -
+                   Function_S(t_s, VT.Dis_Piece[piece_oeder].v1,
+                              VT.Dis_Piece[piece_oeder].v2,
+                              VT.Dis_Piece[piece_oeder].t1);
+        }
+        // 三段中的 第三段
+        else if (t_s > VT.Dis_Piece[piece_oeder].t1 + VT.Dis_Piece[piece_oeder].t2)
+        {
+            return Function_S(
+                       t_e - VT.Dis_Piece[piece_oeder].t1 - VT.Dis_Piece[piece_oeder].t2,
+                       VT.Dis_Piece[piece_oeder].v2, VT.Dis_Piece[piece_oeder].v3,
+                       VT.Dis_Piece[piece_oeder].t3) -
+                   Function_S(
+                       t_s - VT.Dis_Piece[piece_oeder].t1 - VT.Dis_Piece[piece_oeder].t2,
+                       VT.Dis_Piece[piece_oeder].v2,
+                       VT.Dis_Piece[piece_oeder].v3,
+                       VT.Dis_Piece[piece_oeder].t3);
+        }
+        // 三段中的 第二段（匀速）
+        else
+        {
+            return (t_e - t_s) * VT.Dis_Piece[piece_oeder].v2;
+        }
+    }
+    // 单段变速情况
+    else
+    {
+        return Function_S(t_e, VT.Dis_Piece[piece_oeder].v1,
+                          VT.Dis_Piece[piece_oeder].v3,
+                          VT.Dis_Piece[piece_oeder].duration) -
+               Function_S(t_s, VT.Dis_Piece[piece_oeder].v1,
+                          VT.Dis_Piece[piece_oeder].v3,
+                          VT.Dis_Piece[piece_oeder].duration);
+    }
+}
+
+/* 函数：Speed_Planning_in_Piece
+ * 功能：段内速度规划
+ * 参数：f32* speed    output
+ *     f32* len      output
+ * 返回值：void
+ * */
+void Get_Speed_and_Len(f32 *speed, f32 *len)
+{
+    // 下一个时间点(可能溢出)
+    f32 next_time = VT.time_in_piece + PREDICT_INTERVALS;
+    // 被限速的匀速情况
+    if (VT.Dis_Piece[VT.cur_piece].Speed_Mode == UNIFORO_MOTION)
+    {
+        *speed = VT.Dis_Piece[VT.cur_piece].v1;
+        // 有跨段
+        if (next_time > VT.Dis_Piece[VT.cur_piece].duration)
+        {
+            *len = Designated_Distance(VT.cur_piece, VT.time_in_piece,
+                                       VT.Dis_Piece[VT.cur_piece].duration) +
+                   Designated_Distance(
+                       VT.cur_piece + 1, 0,
+                       next_time - VT.Dis_Piece[VT.cur_piece].duration);
+            if (*len > 30)
+            {
+                printf("---异常---\n");
+            }
+        }
+        // 不跨段
+        else
+        {
+            *len = Designated_Distance(VT.cur_piece, VT.time_in_piece,
+                                       next_time);
+        }
+    }
+    // 三段变速情况
+    else if (VT.Dis_Piece[VT.cur_piece].Speed_Mode == VARIBLE_ACC)
+    {
+        // 三段中的 第一段
+        if (VT.time_in_piece < VT.Dis_Piece[VT.cur_piece].t1)
+        {
+            *speed = Function_V(VT.time_in_piece, VT.Dis_Piece[VT.cur_piece].v1,
+                                VT.Dis_Piece[VT.cur_piece].v2,
+                                VT.Dis_Piece[VT.cur_piece].t1);
+            // 有跨段
+            if (next_time > VT.Dis_Piece[VT.cur_piece].t1)
+            {
+                *len = Designated_Distance(VT.cur_piece, VT.time_in_piece,
+                                           VT.Dis_Piece[VT.cur_piece].t1) +
+                       Designated_Distance(VT.cur_piece,
+                                           VT.Dis_Piece[VT.cur_piece].t1,
+                                           next_time);
+            }
+            // 不跨段
+            else
+            {
+                *len = Designated_Distance(VT.cur_piece, VT.time_in_piece,
+                                           next_time);
+            }
+        }
+        // 三段中的 第三段
+        else if (VT.time_in_piece > VT.Dis_Piece[VT.cur_piece].t1 + VT.Dis_Piece[VT.cur_piece].t2)
+        {
+            *speed = Function_V(
+                VT.time_in_piece - VT.Dis_Piece[VT.cur_piece].t1 - VT.Dis_Piece[VT.cur_piece].t2,
+                VT.Dis_Piece[VT.cur_piece].v2,
+                VT.Dis_Piece[VT.cur_piece].v3,
+                VT.Dis_Piece[VT.cur_piece].t3);
+            // 有跨段
+            if (next_time > VT.Dis_Piece[VT.cur_piece].duration)
+            {
+                *len = Designated_Distance(VT.cur_piece, VT.time_in_piece,
+                                           VT.Dis_Piece[VT.cur_piece].duration) +
+                       Designated_Distance(
+                           VT.cur_piece + 1,
+                           0,
+                           next_time - VT.Dis_Piece[VT.cur_piece].duration);
+            }
+            // 不跨段
+            else
+            {
+                *len = Designated_Distance(VT.cur_piece, VT.time_in_piece,
+                                           next_time);
+            }
+        }
+        // 三段中的 第二段（匀速）
+        else
+        {
+            *speed = VT.Dis_Piece[VT.cur_piece].v2;
+            // 有跨段
+            if (next_time > VT.Dis_Piece[VT.cur_piece].t1 + VT.Dis_Piece[VT.cur_piece].t2)
+            {
+                *len = Designated_Distance(
+                           VT.cur_piece,
+                           VT.time_in_piece,
+                           VT.Dis_Piece[VT.cur_piece].t1 + VT.Dis_Piece[VT.cur_piece].t2) +
+                       Designated_Distance(
+                           VT.cur_piece,
+                           VT.Dis_Piece[VT.cur_piece].t1 + VT.Dis_Piece[VT.cur_piece].t2,
+                           next_time);
+                ;
+            }
+            // 不跨段
+            else
+            {
+                *len = Designated_Distance(VT.cur_piece, VT.time_in_piece,
+                                           next_time);
+            }
+        }
+    }
+    // 单段变速情况
+    else
+    {
+        *speed = Function_V(VT.time_in_piece, VT.Dis_Piece[VT.cur_piece].v1,
+                            VT.Dis_Piece[VT.cur_piece].v3,
+                            VT.Dis_Piece[VT.cur_piece].duration);
+        // 有跨段
+        if (next_time > VT.Dis_Piece[VT.cur_piece].duration)
+        {
+            *len = Designated_Distance(VT.cur_piece, VT.time_in_piece,
+                                       VT.Dis_Piece[VT.cur_piece].duration) +
+                   Designated_Distance(
+                       VT.cur_piece + 1, 0,
+                       next_time - VT.Dis_Piece[VT.cur_piece].duration);
+        }
+        // 不跨段
+        else
+        {
+            *len = Designated_Distance(VT.cur_piece, VT.time_in_piece,
+                                       next_time);
+        }
+    }
+
+    // 时间满，则切换下一个时间片
+    VT.time_in_piece = next_time;
+    if (VT.time_in_piece > VT.Dis_Piece[VT.cur_piece].duration)
+    {
+        VT.time_in_piece = VT.time_in_piece - VT.Dis_Piece[VT.cur_piece].duration;
+        VT.cur_piece++;
+        // 终止条件
+        if (VT.cur_piece == VT.piece_num)
+        {
+            stop_f = 1;
+        }
+    }
+    //printf("-----%f\n", VT.time_in_piece);
+}
+
+/* 函数：VT_Calculation
+ * 功能：初始化计算VT结构体
+ * 参数：void
+ * 返回值：void
+ * */
+void VT_Calculation(void)
+{
+    VT_Init();
+    Curve_Segment();
+    Endpoint_Speed_Calculation();
+    Speed_Planning_in_Piece();
+}
+
 int main()
 {
     Tnit_Bez_test();
@@ -542,13 +947,14 @@ int main()
     len_compare();
     Curvature_and_Length_Calculation();
 
-    VT_Init();
-    Curve_Segment();
-    Endpoint_Speed_Calculation();
-
-    for (int i = 0; i < VT.piece_num; i++)
+    VT_Calculation();
+    printf("VT计算完成\n");
+    f32 spd, len, len_total = 0;
+    while (stop_f == 0)
     {
-        l2 += VT.Dis_Piece[i].Piece_Dis;
+        Get_Speed_and_Len(&spd, &len);
+        len_total += len;
+        printf("%f  %f  %f\n", spd, len, len_total);
     }
 
     printf("结束\n");
