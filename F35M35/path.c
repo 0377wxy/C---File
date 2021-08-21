@@ -57,12 +57,12 @@ Bezier_Curve Bez;
 #define VARIBLE_ACC 1    // 变变速运动，Variable acceleration
 #define SIGLE_ACC 2      // 单次变速运动
 
-#define CURVATURE_LIMIT 2.5 // 曲率限制，高于则限速
+#define CURVATURE_LIMIT 2 // 曲率限制，高于则限速
 
-#define LOW_SPEED_LIMIT 1 // 低速限制（m/s），Low speed limit
-#define ACC_LIMIT 5       // 加速度限制，acceleration limit
+#define LOW_SPEED_LIMIT 0.5 // 低速限制（m/s），Low speed limit
+#define ACC_LIMIT 100       // 加速度限制，acceleration limit
 
-#define PREDICT_INTERVALS 0.1
+#define PREDICT_INTERVALS 0.002
 
 typedef struct
 {
@@ -106,7 +106,7 @@ typedef struct
 
 V_T_Diagram VT;
 
-#define LENGTH_ACCURACY 0.0001 // 估计曲线长度的误差（单位m），Length accuracy
+#define LENGTH_ACCURACY 0.00001 // 估计曲线长度的误差（单位m），Length accuracy
 
 typedef struct
 {
@@ -347,20 +347,20 @@ void Tnit_Bez_test(void)
     Bez.Tar_Points[0][1] = 0;
     Bez.Tar_Points[0][2] = 0;
 
-    Bez.Tar_Points[2][0] = 5;
-    Bez.Tar_Points[2][1] = 25;
+    Bez.Tar_Points[2][0] = 0.2;
+    Bez.Tar_Points[2][1] = 0.4;
     Bez.Tar_Points[2][2] = 0;
 
-    Bez.Tar_Points[4][0] = 10;
-    Bez.Tar_Points[4][1] = 20;
+    Bez.Tar_Points[4][0] = 0.4;
+    Bez.Tar_Points[4][1] = 0.1;
     Bez.Tar_Points[4][2] = 0;
 
-    Bez.Tar_Points[6][0] = 25;
-    Bez.Tar_Points[6][1] = 15;
+    Bez.Tar_Points[6][0] = 0.5;
+    Bez.Tar_Points[6][1] = 0.5;
     Bez.Tar_Points[6][2] = 0;
 
-    Bez.Tar_Points[8][0] = 20;
-    Bez.Tar_Points[8][1] = 30;
+    Bez.Tar_Points[8][0] = 0.3;
+    Bez.Tar_Points[8][1] = 0.32;
     Bez.Tar_Points[8][2] = 0;
 
     Bez.Tar_Points[10][0] = 0;
@@ -409,10 +409,10 @@ void VT_Init(void)
     VT.B_Piece[0].p_start = 0;
     VT.B_Piece[0].b_start = 0;
 
-    VT.Speed_Limit[6] = 6;
-    VT.Acc_Limit[6] = 1;
-    VT.Time_Limit[6] = 20;
-    VT.Time_Limit[10] = 35;
+    VT.Speed_Limit[6] = 5;
+    VT.Acc_Limit[6] = 50;
+    VT.Time_Limit[6] = 2;
+    VT.Time_Limit[10] = 4;
 }
 
 /* 函数：Curve_Segment
@@ -626,13 +626,13 @@ void Last_Piece_Cal(f32 Piece_Dis, f32 Start_Speed, f32 End_Speed, f32 *Acc,
 {
     f32 Uni1;
     f32 Uni2;
-    Uni1 = (Piece_Dis - (3 * (powf(End_Speed, 2) - powf(Start_Speed, 2)) / (4 * (*Acc)))) / (*Duration - (3 * (End_Speed - Start_Speed)) / (2 * (*Acc)));
+    Uni1 = (Piece_Dis - 3 * (powf(End_Speed, 2) - powf(Start_Speed, 2)) / (4 * (*Acc))) / (*Duration - (3 * (End_Speed - Start_Speed)) / (2 * (*Acc)));
     if (Uni1 > Start_Speed && Uni1 < End_Speed)
     {
         *Uni_Spd = Uni1;
         return;
     }
-    Uni1 = Piece_Dis - (3 * (powf(Start_Speed, 2) - powf(End_Speed, 2)) / (4 * (*Acc))) / (*Duration - (3 * (Start_Speed - End_Speed)) / (2 * (*Acc)));
+    Uni1 = (Piece_Dis - 3 * (powf(Start_Speed, 2) - powf(End_Speed, 2)) / (4 * (*Acc))) / (*Duration - (3 * (Start_Speed - End_Speed)) / (2 * (*Acc)));
     if (Uni1 < Start_Speed && Uni1 > End_Speed)
     {
         *Uni_Spd = Uni1;
@@ -663,6 +663,7 @@ void Last_Piece_Cal(f32 Piece_Dis, f32 Start_Speed, f32 End_Speed, f32 *Acc,
         *Uni_Spd = Uni1 < Start_Speed && Uni1 < End_Speed ? Uni1 : Uni2;
         return;
     }
+    printf("--计算错误-- %f \n", Piece_Dis);
 }
 
 /* 函数：Speed_Planning_in_Piece
@@ -1066,7 +1067,8 @@ void Next_Pos_Calculation(void)
     } while (fabs(len_t - com_len) > LENGTH_ACCURACY);
     Bez.t = tm;
     l2 += R_data.next_move_len;
-    printf("%f   %f   %f   %f  %d  %f %f\n", Bez.t, R_data.imm_curve_len, Bez.Curve_Len[Bez.order], l2, VT.cur_piece, l4, VT.Dis_Piece[VT.cur_piece].Piece_Dis);
+    //printf("%f   %f   %f   %f  %d  %f  %f  %f  %f\n", R_data.imm_speed, R_data.imm_curve_len, Bez.Curve_Len[Bez.order], l2, VT.cur_piece, l4, VT.Dis_Piece[VT.cur_piece].Piece_Dis, VT.time_in_piece, VT.Dis_Piece[VT.cur_piece].duration);
+    printf("%d   %f   %f   %f  %f\n", Bez.order, Bez.t, R_data.imm_dir[0], R_data.imm_dir[1], R_data.imm_dir[2]);
     // 计算下一点位置
     int i = 0;
     for (i = 0; i < 3; i++)
