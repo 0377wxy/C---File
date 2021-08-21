@@ -18,7 +18,7 @@ int stop_f = 0;
 typedef struct
 {
     f32 Tar_Points[MAX_NUM_OF_POINT][3];                           // Target point list ，目标点与中间点序列，指向MtoC里的 目标点序列
-    u32 Tar_P_Num;                                                 // target points number ，目标点数量
+    int Tar_P_Num;                                                 // target points number ，目标点数量
     f32 Con_points[MAX_NUM_OF_POINT - 1][3];                       // Control point list ，控制点序列
     f32 Bez_a[MAX_NUM_OF_POINT][3];                                // 参数 a ，分x、y、z方向
     f32 Bez_b[MAX_NUM_OF_POINT][3];                                // 参数 b ，分x、y、z方向
@@ -29,8 +29,10 @@ typedef struct
     f32 Curve_Len[MAX_NUM_OF_POINT];                               // 各段曲线长度
     f32 To_Point_Curve_Len[MAX_NUM_OF_POINT][CURVATURE_POINT_NUM]; // 从曲线开始到曲率点的 曲线长度 To_Point_Curve_Len
     f32 Curvature[MAX_NUM_OF_POINT][CURVATURE_POINT_NUM];          // 各段多点曲率存储，对应上面的曲线长度
+    int order;                                                     // 立即位置所在的 曲线序号
+    f32 t;                                                         // 立即位置对应的贝塞尔方程的 参数t
 
-} Bezier_Curve; // 贝塞尔曲线结构体
+} Bezier_Curve;
 
 void Control_Point_Calculation(void);
 void Cross_Product(f32 A[3], f32 B[3], f32 C[3]);
@@ -98,6 +100,33 @@ typedef struct
 } V_T_Diagram;                                      // v_t图 的结构体
 
 V_T_Diagram VT;
+
+#define LENGTH_ACCURACY 0.0001 // 估计曲线长度的误差（单位m），Length accuracy
+
+typedef struct
+{
+    f32 imm_pos[3];       // 立即到达的位置
+    f32 real_pos[3];      // 真正到达的位置
+    f32 imm_dir[3];       // 立即位置对应的方向
+    f32 imm_speed;        // 立即位置对应的速度
+    f32 imm_speed_vec[3]; // 立即位置对应的速度向量
+    f32 cor_speed_vec[3]; // 矫正后的速度向量
+    f32 imm_total_len;    // 到立即位置为止，运动总长度
+    f32 imm_curve_len;    // 到立即位置为止，在曲线内的运动长度
+    f32 next_pos[3];      // 下一个点位置，理论位置
+    f32 next_move_len;    // 下一段的运动长度
+    f32 stop_f;           // 停止标志，默认0
+
+} Real_Time_Data;
+
+Real_Time_Data R_data;
+
+void Real_Time_Data_Init(void);
+void Immediate_Point_Direction_Calculation(void);
+void Immediate_Point_Speed_Calculation(void);
+void Speed_Vector_Calculation(void);
+void Next_Pos_Calculation(void);
+void Predict_Speed_and_Position(void);
 
 /* 函数：Control_Point_Calculation
  * 功能：计算出控制点位置
@@ -598,14 +627,12 @@ void Last_Piece_Cal(f32 Piece_Dis, f32 Start_Speed, f32 End_Speed, f32 *Acc,
         *Uni_Spd = Uni1;
         return;
     }
-
     Uni1 = Piece_Dis - (3 * (powf(Start_Speed, 2) - powf(End_Speed, 2)) / (4 * (*Acc))) / (*Duration - (3 * (Start_Speed - End_Speed)) / (2 * (*Acc)));
     if (Uni1 < Start_Speed && Uni1 > End_Speed)
     {
         *Uni_Spd = Uni1;
         return;
     }
-
     f32 a = 3.0 / (-2 * (*Acc));
     f32 b = *Duration + (3 * (Start_Speed + End_Speed) / (2 * (*Acc)));
     f32 c = -(Piece_Dis + (3 * (powf(Start_Speed, 2) + powf(End_Speed, 2))) / (4 * (*Acc)));
@@ -619,7 +646,6 @@ void Last_Piece_Cal(f32 Piece_Dis, f32 Start_Speed, f32 End_Speed, f32 *Acc,
         *Uni_Spd = Uni1 > Start_Speed && Uni1 > End_Speed ? Uni1 : Uni2;
         return;
     }
-
     a = 3.0 / (2 * (*Acc));
     b = *Duration + (3 * (-Start_Speed - End_Speed) / (2 * (*Acc)));
     c =
@@ -632,7 +658,6 @@ void Last_Piece_Cal(f32 Piece_Dis, f32 Start_Speed, f32 End_Speed, f32 *Acc,
         *Uni_Spd = Uni1 < Start_Speed && Uni1 < End_Speed ? Uni1 : Uni2;
         return;
     }
-    printf("--------计算错误\n");
 }
 
 /* 函数：Speed_Planning_in_Piece
@@ -799,10 +824,6 @@ void Get_Speed_and_Len(f32 *speed, f32 *len)
                    Designated_Distance(
                        VT.cur_piece + 1, 0,
                        next_time - VT.Dis_Piece[VT.cur_piece].duration);
-            if (*len > 30)
-            {
-                printf("---异常---\n");
-            }
         }
         // 不跨段
         else
@@ -921,7 +942,6 @@ void Get_Speed_and_Len(f32 *speed, f32 *len)
             stop_f = 1;
         }
     }
-    //printf("-----%f\n", VT.time_in_piece);
 }
 
 /* 函数：VT_Calculation
@@ -935,6 +955,136 @@ void VT_Calculation(void)
     Curve_Segment();
     Endpoint_Speed_Calculation();
     Speed_Planning_in_Piece();
+}
+
+/* 函数名：Real_Time_Data_Init
+ * 功能：初始化 实时运算结构体
+ * 参数： void
+ * 返回值：void
+ */
+void Real_Time_Data_Init(void)
+{
+    R_data.next_pos[0] = Bez.Tar_Points[0][0];
+    R_data.next_pos[1] = Bez.Tar_Points[0][1];
+    R_data.next_pos[2] = Bez.Tar_Points[0][2];
+
+    R_data.imm_total_len = 0;
+    R_data.imm_curve_len = 0;
+
+    R_data.stop_f = 0;
+}
+
+/* 函数名：Immediate_Point_Direction_Calculation
+ * 功能：计算立即点的方向，并单位化（imm_dir[3]）
+ * 参数： void
+ * 返回值：void
+ */
+void Immediate_Point_Direction_Calculation(void)
+{
+    int i = 0;
+    for (i = 0; i < 3; i++)
+    {
+        R_data.imm_dir[i] = 2 * Bez.Bez_a[Bez.order][i] * Bez.t + Bez.Bez_b[Bez.order][i];
+    }
+    f32 dir_len = Vector_Length(R_data.imm_dir);
+    for (i = 0; i < 3; i++)
+    {
+        R_data.imm_dir[i] = R_data.imm_dir[i] / dir_len;
+    }
+}
+
+/* 函数名：Immediate_Point_Speed_Calculation
+ * 功能：计算立即点速度和运动距离（imm_speed，next_move_len）
+ * 参数： void
+ * 返回值：void
+ */
+void Immediate_Point_Speed_Calculation(void)
+{
+    ;
+}
+
+/* 函数名：Speed_Vector_Calculation
+ * 功能：速度向量计算,将速度进行分解（imm_speed_vec[3]）
+ * 参数： void
+ * 返回值：void
+ */
+void Speed_Vector_Calculation(void)
+{
+    int i = 0;
+    for (i = 0; i < 3; i++)
+    {
+        R_data.imm_speed_vec[i] = R_data.imm_speed * R_data.imm_dir[i];
+    }
+}
+
+/* 函数名：Next_Pos_Calculation
+ * 功能：计算下一个位置（next_pos[3]）
+ * 参数： void
+ * 返回值：void
+ */
+void Next_Pos_Calculation(void)
+{
+    R_data.imm_curve_len += R_data.next_move_len;        //更新曲线内运动长度
+    if (R_data.imm_curve_len > Bez.Curve_Len[Bez.order]) //如果超出当前曲线
+    {
+        R_data.imm_curve_len = R_data.imm_curve_len - Bez.Curve_Len[Bez.order];
+        Bez.order++; // 曲线序号增加
+        Bez.t = 0;   // t重置
+    }
+    // t=0 的积分
+    f32 curve_len_t0 = Distance_Integral(0, Bez.Bez_A[Bez.order],
+                                         Bez.Bez_B[Bez.order],
+                                         Bez.Bez_C[Bez.order]);
+    // 用于 与t时刻的积分 进行比较
+    f32 com_len = curve_len_t0 + R_data.imm_curve_len;
+    // 存放t时刻的积分
+    f32 len_t;
+    // t的上下限
+    f32 ts = Bez.t, te = 1, tm;
+    do // 向中间逼近
+    {
+        tm = (ts + te) / 2;
+        len_t = Distance_Integral(tm, Bez.Bez_A[Bez.order],
+                                  Bez.Bez_B[Bez.order], Bez.Bez_C[Bez.order]);
+        if (len_t > com_len)
+        {
+            te = tm;
+        }
+        else
+        {
+            ts = tm;
+        }
+    } while (fabs(len_t - com_len) < LENGTH_ACCURACY);
+    Bez.t = tm;
+    // 计算下一点位置
+    int i = 0;
+    for (i = 0; i < 3; i++)
+    {
+        R_data.next_pos[i] = Bez.Bez_a[Bez.order][i] * Bez.t * Bez.t + Bez.Bez_b[Bez.order][i] * Bez.t + Bez.Bez_c[Bez.order][i];
+    }
+    // 检验下一点位置是否合法
+    if (R_data.next_pos[0] < 0 || R_data.next_pos[0] > MAXLEN_X || R_data.next_pos[1] < 0 || R_data.next_pos[1] > MAXLEN_Y || R_data.next_pos[2] < 0 || R_data.next_pos[2] > MAXLEN_Z)
+    {
+        R_data.stop_f = 1;
+    }
+}
+
+/* 函数名：Predict_Speed_and_Position
+ * 功能：预测速度和位置
+ * 参数： void
+ * 返回值：void
+ */
+void Predict_Speed_and_Position(void)
+{
+    int i = 0;
+    for (i = 0; i < 3; i++) // 更新立即到达位置（imm_pos[3]），用于矫正
+    {
+        R_data.imm_pos[i] = R_data.next_pos[i];
+    }
+    Immediate_Point_Direction_Calculation();
+    Immediate_Point_Speed_Calculation();
+    Speed_Vector_Calculation();
+    Next_Pos_Calculation();
 }
 
 int main()
