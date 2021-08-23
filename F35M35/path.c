@@ -8,6 +8,8 @@ typedef unsigned int u16;
 typedef unsigned char u8;
 typedef float f32;
 
+#define SPEED_LIMIT 1 // 三段中第二段的速度限制，Speed limit
+
 //各轴运行距离限制
 #define MAXLEN_X 80000
 #define MAXLEN_Y 80000
@@ -106,7 +108,7 @@ typedef struct
 
 V_T_Diagram VT;
 
-#define LENGTH_ACCURACY 0.00001 // 估计曲线长度的误差（单位m），Length accuracy
+#define LENGTH_ACCURACY 0.0001 // 估计曲线长度的误差（单位m），Length accuracy
 
 typedef struct
 {
@@ -411,8 +413,8 @@ void VT_Init(void)
 
     VT.Speed_Limit[6] = 5;
     VT.Acc_Limit[6] = 50;
-    VT.Time_Limit[6] = 2;
-    VT.Time_Limit[10] = 4;
+    VT.Time_Limit[6] = 4;
+    VT.Time_Limit[10] = 6;
 }
 
 /* 函数：Curve_Segment
@@ -589,8 +591,18 @@ int Pre_Piece_Cal(f32 Piece_Dis, f32 Start_Speed, f32 End_Speed, f32 *Acc,
         (4 * (*Acc) * Piece_Dis + 3 * (powf(Start_Speed, 2) + powf(End_Speed, 2))) / 6);
     if (spd > Start_Speed && spd > End_Speed)
     {
-        *Uni_Spd = spd;
-        *Duration = 3 * (2 * (*Uni_Spd) - Start_Speed - End_Speed) / (2 * (*Acc));
+        // 只用两段的速度过大
+        if (spd > SPEED_LIMIT)
+        {
+            *Uni_Spd = SPEED_LIMIT;
+            *Duration = (Piece_Dis - 3 * (2 * SPEED_LIMIT * (Start_Speed + End_Speed) - 2 * powf(SPEED_LIMIT, 2) - powf(Start_Speed, 2) - powf(End_Speed, 2)) / (4 * *Acc)) / SPEED_LIMIT;
+        }
+        // 极限速度不是很大
+        else
+        {
+            *Uni_Spd = spd;
+            *Duration = 3 * (2 * (*Uni_Spd) - Start_Speed - End_Speed) / (2 * (*Acc));
+        }
         return 1;
     }
 
@@ -697,12 +709,17 @@ void Speed_Planning_in_Piece(void)
                                               &VT.Dis_Piece[j].Acc_Limit,
                                               &VT.Dis_Piece[j].v2,
                                               &VT.Dis_Piece[j].duration);
-                // 还是 三段速 , 其实只有两段
+                // 还是 三段速 , (可能两段，可能三段)
                 if (changed_f == VARIBLE_ACC)
                 {
                     // 计算两段各自的时间
                     VT.Dis_Piece[j].t1 = 3 * fabs(VT.Dis_Piece[j].v1 - VT.Dis_Piece[j].v2) / (2 * VT.Dis_Piece[j].Acc_Limit);
                     VT.Dis_Piece[j].t3 = 3 * fabs(VT.Dis_Piece[j].v2 - VT.Dis_Piece[j].v3) / (2 * VT.Dis_Piece[j].Acc_Limit);
+                    // 是否有匀速部分
+                    if (fabs(VT.Dis_Piece[j].t1 + VT.Dis_Piece[j].t3 - VT.Dis_Piece[j].duration) > 0.0001)
+                    {
+                        VT.Dis_Piece[j].t2 = VT.Dis_Piece[j].duration - VT.Dis_Piece[j].t1 - VT.Dis_Piece[j].t3;
+                    }
                 }
                 // 变成 单段速
                 else
