@@ -343,31 +343,62 @@ void Curvature_and_Length_Calculation(void)
  * */
 void Tnit_Bez_test(void)
 {
-    Bez.Tar_P_Num = 11;
+    Bez.Tar_P_Num = 25;
 
     Bez.Tar_Points[0][0] = 0;
     Bez.Tar_Points[0][1] = 0;
     Bez.Tar_Points[0][2] = 0;
 
-    Bez.Tar_Points[2][0] = 0.2;
-    Bez.Tar_Points[2][1] = 0.4;
-    Bez.Tar_Points[2][2] = 0;
+    Bez.Tar_Points[2][0] = 0.25356;
+    Bez.Tar_Points[2][1] = 0.1;
+    Bez.Tar_Points[2][2] = 0.16034;
 
-    Bez.Tar_Points[4][0] = 0.4;
-    Bez.Tar_Points[4][1] = 0.1;
-    Bez.Tar_Points[4][2] = 0;
+    Bez.Tar_Points[4][0] = 0.50894;
+    Bez.Tar_Points[4][1] = 0.45001;
+    Bez.Tar_Points[4][2] = 0.32183;
 
-    Bez.Tar_Points[6][0] = 0.5;
-    Bez.Tar_Points[6][1] = 0.5;
-    Bez.Tar_Points[6][2] = 0;
+    Bez.Tar_Points[6][0] = 0.50712;
+    Bez.Tar_Points[6][1] = 0.50000;
+    Bez.Tar_Points[6][2] = 0.32068;
 
-    Bez.Tar_Points[8][0] = 0.3;
-    Bez.Tar_Points[8][1] = 0.32;
-    Bez.Tar_Points[8][2] = 0;
+    Bez.Tar_Points[8][0] = 0.50192;
+    Bez.Tar_Points[8][1] = 0.54966;
+    Bez.Tar_Points[8][2] = 0.31739;
 
-    Bez.Tar_Points[10][0] = 0;
-    Bez.Tar_Points[10][1] = 0;
-    Bez.Tar_Points[10][2] = 0;
+    Bez.Tar_Points[10][0] = 0.21130;
+    Bez.Tar_Points[10][1] = 0.55000;
+    Bez.Tar_Points[10][2] = 0.13362;
+
+    Bez.Tar_Points[12][0] = 0.29582;
+    Bez.Tar_Points[12][1] = 0.25000;
+    Bez.Tar_Points[12][2] = 0.18706;
+
+    Bez.Tar_Points[14][0] = 0.42260;
+    Bez.Tar_Points[14][1] = 0.55000;
+    Bez.Tar_Points[14][2] = 0.26723;
+
+    Bez.Tar_Points[16][0] = 0.08971;
+    Bez.Tar_Points[16][1] = 0.54966;
+    Bez.Tar_Points[16][2] = 0.05673;
+
+    Bez.Tar_Points[18][0] = 0.08452;
+    Bez.Tar_Points[18][1] = 0.50000;
+    Bez.Tar_Points[18][2] = 0.05345;
+
+    Bez.Tar_Points[20][0] = 0.06671;
+    Bez.Tar_Points[20][1] = 0.15104;
+    Bez.Tar_Points[20][2] = 0.04218;
+
+    Bez.Tar_Points[22][0] = 0.08452;
+    Bez.Tar_Points[22][1] = 0.05000;
+    Bez.Tar_Points[22][2] = 0.05345;
+
+    Bez.Tar_Points[24][0] = 0.25356;
+    Bez.Tar_Points[24][1] = 0.10000;
+    Bez.Tar_Points[24][2] = 0.16034;
+
+    Bez.order = 0;
+    Bez.t = 0;
 }
 
 void len_compare()
@@ -411,10 +442,18 @@ void VT_Init(void)
     VT.B_Piece[0].p_start = 0;
     VT.B_Piece[0].b_start = 0;
 
-    VT.Speed_Limit[6] = 5;
-    VT.Acc_Limit[6] = 50;
-    VT.Time_Limit[6] = 4;
-    VT.Time_Limit[10] = 6;
+    VT.Speed_Limit[6] = 5.4962108;
+    VT.Time_Limit[6] = 3;
+
+    VT.Speed_Limit[18] = 5.4962108;
+    VT.Acc_Limit[18] = 53;
+    VT.Time_Limit[18] = 4.0954;
+
+    VT.Speed_Limit[24] = 0;
+    VT.Time_Limit[24] = 9;
+
+    VT.time_in_piece = 0;
+    VT.cur_piece = 0;
 }
 
 /* 函数：Curve_Segment
