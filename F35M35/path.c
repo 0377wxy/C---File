@@ -62,7 +62,7 @@ Bezier_Curve Bez;
 #define CURVATURE_LIMIT 2.3 // 曲率限制，高于则限速
 
 #define LOW_SPEED_LIMIT 0.5 // 低速限制（m/s），Low speed limit
-#define ACC_LIMIT 40        // 加速度限制，acceleration limit
+#define ACC_LIMIT 30        // 加速度限制，acceleration limit
 
 #define PREDICT_INTERVALS 0.002
 
@@ -369,17 +369,17 @@ void Tnit_Bez_test(void)
     Bez.Tar_Points[2][1] = 0.1;
     Bez.Tar_Points[2][2] = 0.16034;
 
-    Bez.Tar_Points[4][0] = 0.48044;
-    Bez.Tar_Points[4][1] = 0.39702;
-    Bez.Tar_Points[4][2] = 0.30381;
+    Bez.Tar_Points[4][0] = 0.53519;
+    Bez.Tar_Points[4][1] = 0.10138;
+    Bez.Tar_Points[4][2] = 0.33843;
 
     Bez.Tar_Points[6][0] = 0.50712;
     Bez.Tar_Points[6][1] = 0.50000;
     Bez.Tar_Points[6][2] = 0.32068;
 
-    Bez.Tar_Points[8][0] = 0.46641;
-    Bez.Tar_Points[8][1] = 0.59633;
-    Bez.Tar_Points[8][2] = 0.29493;
+    Bez.Tar_Points[8][0] = 0.50010;
+    Bez.Tar_Points[8][1] = 0.59965;
+    Bez.Tar_Points[8][2] = 0.31624;
 
     // 新增
     Bez.Tar_Points[10][0] = 0.29582;
@@ -410,9 +410,9 @@ void Tnit_Bez_test(void)
     Bez.Tar_Points[22][1] = 0.50000;
     Bez.Tar_Points[22][2] = 0.05345;
 
-    Bez.Tar_Points[24][0] = 0.16904;
-    Bez.Tar_Points[24][1] = 0.15104;
-    Bez.Tar_Points[24][2] = 0.10689;
+    Bez.Tar_Points[24][0] = 0.06346;
+    Bez.Tar_Points[24][1] = 0.20104;
+    Bez.Tar_Points[24][2] = 0.04013;
 
     Bez.Tar_Points[26][0] = 0.25356;
     Bez.Tar_Points[26][1] = 0.05000;
@@ -467,11 +467,11 @@ void VT_Init(void)
     VT.B_Piece[0].p_start = 0;
     VT.B_Piece[0].b_start = 0;
 
-    VT.Speed_Limit[6] = 5.4962108;
+    VT.Speed_Limit[6] = 3;
     VT.Time_Limit[6] = 3;
 
-    VT.Speed_Limit[22] = 5.4962108;
-    VT.Acc_Limit[22] = 53;
+    VT.Speed_Limit[22] = 3;
+    VT.Acc_Limit[22] = 15;
     VT.Time_Limit[22] = 4.0954;
 
     VT.Speed_Limit[28] = 0;
