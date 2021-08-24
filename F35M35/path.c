@@ -179,11 +179,24 @@ void Control_Point_Calculation(void)
 
         // 计算N、M、K
         Cross_Product(BA_vec, BC_vec, N_vec); // 计算N
-        for (j = 0; j < 3; j++)               // 计算M
+
+        // 直线情况
+        if (Vector_Length(N_vec) < 0.001)
         {
-            M_vec[j] = (BA_vec[j] + BC_vec[j]) / 2;
+            for (j = 0; j < 3; j++)
+            {
+                K_vec[j] = BC_vec[j];
+            }
         }
-        Cross_Product(N_vec, M_vec, K_vec); // 计算K
+        // 一般曲线情况
+        else
+        {
+            for (j = 0; j < 3; j++) // 计算M
+            {
+                M_vec[j] = (BA_vec[j] + BC_vec[j]) / 2;
+            }
+            Cross_Product(N_vec, M_vec, K_vec); // 计算K
+        }
 
         // 计算参数t1,t2
         t1 = CON_POINT_RATIO * BC_len / Vector_Length(K_vec);
@@ -273,8 +286,11 @@ void Bezier_Parameter_Calculation(void)
 void Curves_Length_Calculation(void)
 {
     int i = 0;
+    f32 a1, a2;
     for (i = 0; i < Bez.Tar_P_Num - 1; i++)
     {
+        a1 = Distance_Integral(1, Bez.Bez_A[i], Bez.Bez_B[i], Bez.Bez_C[i]);
+        a2 = Distance_Integral(0, Bez.Bez_A[i], Bez.Bez_B[i], Bez.Bez_C[i]);
         Bez.Curve_Len[i] = Distance_Integral(1, Bez.Bez_A[i], Bez.Bez_B[i], Bez.Bez_C[i]) -
                            Distance_Integral(0, Bez.Bez_A[i], Bez.Bez_B[i], Bez.Bez_C[i]);
     }
