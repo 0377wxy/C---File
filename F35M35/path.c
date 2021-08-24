@@ -61,8 +61,8 @@ Bezier_Curve Bez;
 
 #define CURVATURE_LIMIT 2.3 // 曲率限制，高于则限速
 
-#define LOW_SPEED_LIMIT 0.5 // 低速限制（m/s），Low speed limit
-#define ACC_LIMIT 30        // 加速度限制，acceleration limit
+#define LOW_SPEED_LIMIT 1 // 低速限制（m/s），Low speed limit
+#define ACC_LIMIT 40      // 加速度限制，acceleration limit
 
 #define PREDICT_INTERVALS 0.002
 
@@ -366,7 +366,7 @@ void Tnit_Bez_test(void)
     Bez.Tar_Points[0][2] = 0;
 
     Bez.Tar_Points[2][0] = 0.25356;
-    Bez.Tar_Points[2][1] = 0.1;
+    Bez.Tar_Points[2][1] = 0.05;
     Bez.Tar_Points[2][2] = 0.16034;
 
     Bez.Tar_Points[4][0] = 0.53519;
@@ -467,11 +467,11 @@ void VT_Init(void)
     VT.B_Piece[0].p_start = 0;
     VT.B_Piece[0].b_start = 0;
 
-    VT.Speed_Limit[6] = 3;
+    VT.Speed_Limit[6] = 5.4962108;
     VT.Time_Limit[6] = 3;
 
-    VT.Speed_Limit[22] = 3;
-    VT.Acc_Limit[22] = 15;
+    VT.Speed_Limit[22] = 5.4962108;
+    VT.Acc_Limit[22] = 20;
     VT.Time_Limit[22] = 4.0954;
 
     VT.Speed_Limit[28] = 0;
