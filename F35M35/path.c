@@ -511,7 +511,7 @@ void Curve_Segment(void)
             }
             else
             {
-                VT.B_Piece[bk].time = VT.Time_Limit[i] - VT.Time_Limit[VT.B_Piece[bk - 1].p_end];
+                VT.B_Piece[bk].time = VT.Time_Limit[i] - VT.Time_Limit[VT.B_Piece[bk - 1].b_end];
             }
 
             bk++;
