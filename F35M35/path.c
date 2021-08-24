@@ -15,7 +15,7 @@ typedef float f32;
 #define MAXLEN_Y 80000
 #define MAXLEN_Z 80000
 
-#define MAX_NUM_OF_POINT 30   // 点个数上限
+#define MAX_NUM_OF_POINT 35   // 点个数上限
 #define CURVATURE_POINT_NUM 8 // 各段求曲率的点个数
 #define CON_POINT_RATIO 0.4   // 控制点距中间点位置 与 两目标点位置的比值，Control point ratio
 
@@ -59,10 +59,10 @@ Bezier_Curve Bez;
 #define VARIBLE_ACC 1    // 变变速运动，Variable acceleration
 #define SIGLE_ACC 2      // 单次变速运动
 
-#define CURVATURE_LIMIT 2 // 曲率限制，高于则限速
+#define CURVATURE_LIMIT 2.3 // 曲率限制，高于则限速
 
 #define LOW_SPEED_LIMIT 0.5 // 低速限制（m/s），Low speed limit
-#define ACC_LIMIT 100       // 加速度限制，acceleration limit
+#define ACC_LIMIT 40        // 加速度限制，acceleration limit
 
 #define PREDICT_INTERVALS 0.002
 
@@ -95,9 +95,9 @@ typedef struct
 
 typedef struct
 {
-    f32 Speed_Limit[30];                            // 具体点的速度限制
-    f32 Acc_Limit[30];                              // 具体点对应的段的加速度限制
-    f32 Time_Limit[30];                             // 具体点的时间限制
+    f32 Speed_Limit[MAX_NUM_OF_POINT];              // 具体点的速度限制
+    f32 Acc_Limit[MAX_NUM_OF_POINT];                // 具体点对应的段的加速度限制
+    f32 Time_Limit[MAX_NUM_OF_POINT];               // 具体点的时间限制
     Distance_Piece Dis_Piece[MAX_NUM_OF_POINT - 1]; // 路程片结构体
     Big_Piece B_Piece[6];                           // 大片 结构体
     int piece_num;                                  // 路程片个数
@@ -343,7 +343,7 @@ void Curvature_and_Length_Calculation(void)
  * */
 void Tnit_Bez_test(void)
 {
-    Bez.Tar_P_Num = 25;
+    Bez.Tar_P_Num = 29;
 
     Bez.Tar_Points[0][0] = 0;
     Bez.Tar_Points[0][1] = 0;
@@ -353,49 +353,58 @@ void Tnit_Bez_test(void)
     Bez.Tar_Points[2][1] = 0.1;
     Bez.Tar_Points[2][2] = 0.16034;
 
-    Bez.Tar_Points[4][0] = 0.50894;
-    Bez.Tar_Points[4][1] = 0.45001;
-    Bez.Tar_Points[4][2] = 0.32183;
+    Bez.Tar_Points[4][0] = 0.48044;
+    Bez.Tar_Points[4][1] = 0.39702;
+    Bez.Tar_Points[4][2] = 0.30381;
 
     Bez.Tar_Points[6][0] = 0.50712;
     Bez.Tar_Points[6][1] = 0.50000;
     Bez.Tar_Points[6][2] = 0.32068;
 
-    Bez.Tar_Points[8][0] = 0.50192;
-    Bez.Tar_Points[8][1] = 0.54966;
-    Bez.Tar_Points[8][2] = 0.31739;
+    Bez.Tar_Points[8][0] = 0.46641;
+    Bez.Tar_Points[8][1] = 0.59633;
+    Bez.Tar_Points[8][2] = 0.29493;
 
-    Bez.Tar_Points[10][0] = 0.21130;
-    Bez.Tar_Points[10][1] = 0.55000;
-    Bez.Tar_Points[10][2] = 0.13362;
+    // 新增
+    Bez.Tar_Points[10][0] = 0.29582;
+    Bez.Tar_Points[10][1] = 0.63000;
+    Bez.Tar_Points[10][2] = 0.18706;
 
-    Bez.Tar_Points[12][0] = 0.29582;
-    Bez.Tar_Points[12][1] = 0.25000;
-    Bez.Tar_Points[12][2] = 0.18706;
+    Bez.Tar_Points[12][0] = 0.21130;
+    Bez.Tar_Points[12][1] = 0.45000;
+    Bez.Tar_Points[12][2] = 0.13362;
 
-    Bez.Tar_Points[14][0] = 0.42260;
-    Bez.Tar_Points[14][1] = 0.55000;
-    Bez.Tar_Points[14][2] = 0.26723;
+    Bez.Tar_Points[14][0] = 0.29582;
+    Bez.Tar_Points[14][1] = 0.45000;
+    Bez.Tar_Points[14][2] = 0.18706;
 
-    Bez.Tar_Points[16][0] = 0.08971;
-    Bez.Tar_Points[16][1] = 0.54966;
-    Bez.Tar_Points[16][2] = 0.05673;
+    Bez.Tar_Points[16][0] = 0.42260;
+    Bez.Tar_Points[16][1] = 0.55000;
+    Bez.Tar_Points[16][2] = 0.26723;
+    // 新增
+    Bez.Tar_Points[18][0] = 0.29582;
+    Bez.Tar_Points[18][1] = 0.63000;
+    Bez.Tar_Points[18][2] = 0.18706;
 
-    Bez.Tar_Points[18][0] = 0.08452;
-    Bez.Tar_Points[18][1] = 0.50000;
-    Bez.Tar_Points[18][2] = 0.05345;
-
-    Bez.Tar_Points[20][0] = 0.06671;
-    Bez.Tar_Points[20][1] = 0.15104;
-    Bez.Tar_Points[20][2] = 0.04218;
+    Bez.Tar_Points[20][0] = 0.12691;
+    Bez.Tar_Points[20][1] = 0.59617;
+    Bez.Tar_Points[20][2] = 0.08025;
 
     Bez.Tar_Points[22][0] = 0.08452;
-    Bez.Tar_Points[22][1] = 0.05000;
+    Bez.Tar_Points[22][1] = 0.50000;
     Bez.Tar_Points[22][2] = 0.05345;
 
-    Bez.Tar_Points[24][0] = 0.25356;
-    Bez.Tar_Points[24][1] = 0.10000;
-    Bez.Tar_Points[24][2] = 0.16034;
+    Bez.Tar_Points[24][0] = 0.16904;
+    Bez.Tar_Points[24][1] = 0.15104;
+    Bez.Tar_Points[24][2] = 0.10689;
+
+    Bez.Tar_Points[26][0] = 0.25356;
+    Bez.Tar_Points[26][1] = 0.05000;
+    Bez.Tar_Points[26][2] = 0.16034;
+
+    Bez.Tar_Points[28][0] = 0.33808;
+    Bez.Tar_Points[28][1] = 0.10000;
+    Bez.Tar_Points[28][2] = 0.21378;
 
     Bez.order = 0;
     Bez.t = 0;
@@ -428,7 +437,7 @@ void VT_Init(void)
     int i = 0;
     VT.Dis_Piece[0].v1 = 0; //初始速度为0
     // 将速度限制初始化为-1,>0表示有效
-    for (i = 0; i < 30; i++)
+    for (i = 0; i < MAX_NUM_OF_POINT; i++)
     {
         VT.Speed_Limit[i] = -1;
         VT.Acc_Limit[i] = -1;
@@ -445,12 +454,12 @@ void VT_Init(void)
     VT.Speed_Limit[6] = 5.4962108;
     VT.Time_Limit[6] = 3;
 
-    VT.Speed_Limit[18] = 5.4962108;
-    VT.Acc_Limit[18] = 53;
-    VT.Time_Limit[18] = 4.0954;
+    VT.Speed_Limit[22] = 5.4962108;
+    VT.Acc_Limit[22] = 53;
+    VT.Time_Limit[22] = 4.0954;
 
-    VT.Speed_Limit[24] = 0;
-    VT.Time_Limit[24] = 9;
+    VT.Speed_Limit[28] = 0;
+    VT.Time_Limit[28] = 9;
 
     VT.time_in_piece = 0;
     VT.cur_piece = 0;
