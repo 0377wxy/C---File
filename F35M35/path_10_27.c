@@ -8,19 +8,14 @@ typedef unsigned int u16;
 typedef unsigned char u8;
 typedef float f32;
 
-#define SPEED_LIMIT 1 // 三段中第二段的速度限制，Speed limit
-
 //各轴运行距离限制
 #define MAXLEN_X 80000
 #define MAXLEN_Y 80000
 #define MAXLEN_Z 80000
 
 #define MAX_NUM_OF_POINT 35   // 点个数上限
-#define CURVATURE_POINT_NUM 8 // 各段求曲率的点个数
+#define CURVATURE_POINT_NUM 8 // 各段求曲率的点个数,不含t=1的点
 #define CON_POINT_RATIO 0.4   // 控制点距中间点位置 与 两目标点位置的比值，Control point ratio
-
-f32 l1, l2, l3, l4;
-int stop_f = 0;
 
 typedef struct
 {
@@ -39,20 +34,20 @@ typedef struct
     int order;                                                     // 立即位置所在的 曲线序号
     f32 t;                                                         // 立即位置对应的贝塞尔方程的 参数t
 
-} Bezier_Curve;
+} Bezier_Curve; // 贝塞尔曲线结构体
 
 void Control_Point_Calculation(void);
 void Cross_Product(f32 A[3], f32 B[3], f32 C[3]);
 f32 Vector_Length(f32 A[3]);
-void Tnit_Bez(void);
+//void Tnit_Bez(void);
 void Midpoint_Calculation(void);
 void Bezier_Parameter_Calculation(void);
 void Curves_Length_Calculation(void);
 f32 Distance_Integral(f32 t, f32 A, f32 B, f32 C);
 f32 Point_Curvature(f32 t, f32 a[3], f32 b[3], f32 c[3]);
 void Curvature_and_Length_Calculation(void);
-
-Bezier_Curve Bez;
+void Bezier_Calculate(void);
+void Tnit_Bez_test(void);
 
 // 以下为 Distance_Piece.speed_mode 的选项
 #define UNIFORO_MOTION 0 // 匀速运动，uniform motion
@@ -61,10 +56,9 @@ Bezier_Curve Bez;
 
 #define CURVATURE_LIMIT 2.3 // 曲率限制，高于则限速
 
-#define LOW_SPEED_LIMIT 1 // 低速限制（m/s），Low speed limit
+#define LOW_SPEED_LIMIT 1 // 曲率较大位置的低速限制（m/s），Low speed limit
+#define SPEED_LIMIT 1     // 三段中第二段的速度限制，Speed limit
 #define ACC_LIMIT 20      // 加速度限制，acceleration limit
-
-#define PREDICT_INTERVALS 0.002
 
 typedef struct
 {
@@ -106,9 +100,22 @@ typedef struct
     f32 time_in_piece;                              // 当前片内的时间
 } V_T_Diagram;                                      // v_t图 的结构体
 
-V_T_Diagram VT;
+void Curve_Segment(void);
+f32 Designated_Distance(int piece_oeder, f32 t_s, f32 t_e);
+void Endpoint_Speed_Calculation(void);
+f32 Function_S(f32 t, f32 v_s, f32 v_e, f32 t_m);
+f32 Function_V(f32 t, f32 v_s, f32 v_e, f32 t_m);
+void Get_Speed_and_Len(f32 *speed, f32 *len);
+void Last_Piece_Cal(f32 Piece_Dis, f32 Start_Speed, f32 End_Speed, f32 *Acc,
+                    f32 *Uni_Spd, f32 *Duration);
+int Pre_Piece_Cal(f32 Piece_Dis, f32 Start_Speed, f32 End_Speed, f32 *Acc,
+                  f32 *Uni_Spd, f32 *Duration);
+void Speed_Planning_in_Piece(void);
+void VT_Calculation(void);
+void VT_Init(void);
 
-#define LENGTH_ACCURACY 0.0001 // 估计曲线长度的误差（单位m），Length accuracy
+#define PREDICT_INTERVALS 0.002 // 预测间隔（单位s） ，predict intervals
+#define LENGTH_ACCURACY 0.0001  // 估计曲线长度的误差（单位m），Length accuracy
 
 typedef struct
 {
@@ -123,10 +130,11 @@ typedef struct
     f32 next_pos[3];      // 下一个点位置，理论位置
     f32 next_move_len;    // 下一段的运动长度
     f32 stop_f;           // 停止标志，默认0
+    int order;
+    int t_num;
+    f32 error_len;
 
 } Real_Time_Data;
-
-Real_Time_Data R_data;
 
 void Real_Time_Data_Init(void);
 void Immediate_Point_Direction_Calculation(void);
@@ -134,6 +142,9 @@ void Immediate_Point_Speed_Calculation(void);
 void Speed_Vector_Calculation(void);
 void Next_Pos_Calculation(void);
 void Predict_Speed_and_Position(void);
+void Speed_Correction(void);
+
+Bezier_Curve Bez;
 
 /* 函数：Control_Point_Calculation
  * 功能：计算出控制点位置
@@ -239,6 +250,21 @@ f32 Vector_Length(f32 A[3])
     return sqrt(total);
 }
 
+/* 函数：Tnit_Bez
+ * 功能：初始化贝塞尔结构体
+ * 参数：void
+ * 返回值：void
+ * */
+/*
+ void Tnit_Bez(void)
+ {
+ Bez.Tar_Points = MtoC.Ass_Pos;
+ Bez.Tar_P_Num = MtoC.Pos_Num;
+ Bez.imm_Bez_order = 0;
+ Bez.imm_Bez_t = 0;
+ }
+ */
+
 /* 函数：Midpoint_Calculation
  * 功能：中间点计算,为控制点的中心点
  * 参数：void
@@ -286,13 +312,12 @@ void Bezier_Parameter_Calculation(void)
 void Curves_Length_Calculation(void)
 {
     int i = 0;
-    f32 a1, a2;
     for (i = 0; i < Bez.Tar_P_Num - 1; i++)
     {
-        a1 = Distance_Integral(1, Bez.Bez_A[i], Bez.Bez_B[i], Bez.Bez_C[i]);
-        a2 = Distance_Integral(0, Bez.Bez_A[i], Bez.Bez_B[i], Bez.Bez_C[i]);
-        Bez.Curve_Len[i] = Distance_Integral(1, Bez.Bez_A[i], Bez.Bez_B[i], Bez.Bez_C[i]) -
-                           Distance_Integral(0, Bez.Bez_A[i], Bez.Bez_B[i], Bez.Bez_C[i]);
+        Bez.Curve_Len[i] = Distance_Integral(1, Bez.Bez_A[i], Bez.Bez_B[i],
+                                             Bez.Bez_C[i]) -
+                           Distance_Integral(0, Bez.Bez_A[i], Bez.Bez_B[i],
+                                             Bez.Bez_C[i]);
     }
 }
 
@@ -321,13 +346,15 @@ f32 Point_Curvature(f32 t, f32 a[3], f32 b[3], f32 c[3])
 {
     f32 B_1[3]; // 一阶导数
     f32 B_2[3]; // 二阶导数
-    int i = 0, j = 0;
+    int j = 0;
     for (j = 0; j < 3; j++)
     {
         B_1[j] = 2 * a[j] * t + b[j];
         B_2[j] = 2 * a[j];
     }
-    f32 quly = sqrt(pow(B_2[2] * B_1[1] - B_2[1] * B_1[2], 2) + pow(B_2[0] * B_1[2] - B_2[2] * B_1[0], 2) + pow(B_2[1] * B_1[0] - B_2[0] * B_1[1], 2)) / pow(pow(B_1[0], 2) + pow(B_1[1], 2) + pow(B_1[2], 2), 3 / 2);
+    f32 quly = sqrt(
+                   pow(B_2[2] * B_1[1] - B_2[1] * B_1[2], 2) + pow(B_2[0] * B_1[2] - B_2[2] * B_1[0], 2) + pow(B_2[1] * B_1[0] - B_2[0] * B_1[1], 2)) /
+               pow(pow(B_1[0], 2) + pow(B_1[1], 2) + pow(B_1[2], 2), 3 / 2);
     return quly;
 }
 
@@ -342,12 +369,17 @@ void Curvature_and_Length_Calculation(void)
     f32 t;
     for (i = 0; i < Bez.Tar_P_Num - 1; i++)
     {
-        f32 len_0 = Distance_Integral(0, Bez.Bez_A[i], Bez.Bez_B[i], Bez.Bez_C[i]);
-        for (j = 0; j < 8; j++)
+        f32 len_0 = Distance_Integral(0, Bez.Bez_A[i], Bez.Bez_B[i],
+                                      Bez.Bez_C[i]);
+        for (j = 0; j < CURVATURE_POINT_NUM; j++)
         {
             t = j * 0.125;
-            Bez.Curvature[i][j] = Point_Curvature(t, Bez.Bez_a[i], Bez.Bez_b[i], Bez.Bez_c[i]);
-            Bez.To_Point_Curve_Len[i][j] = Distance_Integral(t, Bez.Bez_A[i], Bez.Bez_B[i], Bez.Bez_C[i]) - len_0;
+            Bez.Curvature[i][j] = Point_Curvature(t, Bez.Bez_a[i], Bez.Bez_b[i],
+                                                  Bez.Bez_c[i]);
+            Bez.To_Point_Curve_Len[i][j] = Distance_Integral(t, Bez.Bez_A[i],
+                                                             Bez.Bez_B[i],
+                                                             Bez.Bez_C[i]) -
+                                           len_0;
         }
     }
 }
@@ -361,9 +393,9 @@ void Tnit_Bez_test(void)
 {
     Bez.Tar_P_Num = 29;
 
-    Bez.Tar_Points[0][0] = 0;
-    Bez.Tar_Points[0][1] = 0;
-    Bez.Tar_Points[0][2] = 0;
+    Bez.Tar_Points[0][0] = 0.01;
+    Bez.Tar_Points[0][1] = 0.01;
+    Bez.Tar_Points[0][2] = 0.01;
 
     Bez.Tar_Points[2][0] = 0.25356;
     Bez.Tar_Points[2][1] = 0.05;
@@ -426,22 +458,22 @@ void Tnit_Bez_test(void)
     Bez.t = 0;
 }
 
-void len_compare()
+/* 函数：Bezier_Calculate
+ * 功能：贝塞尔结构体计算
+ * 参数：void
+ * 返回值：void
+ * */
+void Bezier_Calculate(void)
 {
-    printf("---------------------\n");
-    for (int i = 0; i < Bez.Tar_P_Num - 1; i++)
-    {
-        f32 len = 0;
-        for (int j = 0; j < 3; j++)
-        {
-            len += pow(Bez.Tar_Points[i][j] - Bez.Tar_Points[i + 1][j], 2);
-            //printf("           %f  %f\n", Bez.Tar_Points[i][j], Bez.Tar_Points[i + 1][j]);
-        }
-        len = sqrt(len);
-        printf("%f  %f\n", len, Bez.Curve_Len[i]);
-        l1 += Bez.Curve_Len[i];
-    }
+    Tnit_Bez_test();
+    Control_Point_Calculation();
+    Midpoint_Calculation();
+    Bezier_Parameter_Calculation();
+    Curves_Length_Calculation();
+    Curvature_and_Length_Calculation();
 }
+
+V_T_Diagram VT;
 
 /* 函数：VT_Init
  * 功能：速度结构体初始化
@@ -452,7 +484,7 @@ void VT_Init(void)
 {
     int i = 0;
     VT.Dis_Piece[0].v1 = 0; //初始速度为0
-    // 将速度限制初始化为-1,>0表示有效
+                            // 将速度限制初始化为-1,>0表示有效
     for (i = 0; i < MAX_NUM_OF_POINT; i++)
     {
         VT.Speed_Limit[i] = -1;
@@ -467,11 +499,11 @@ void VT_Init(void)
     VT.B_Piece[0].p_start = 0;
     VT.B_Piece[0].b_start = 0;
 
-    VT.Speed_Limit[6] = 2;
+    VT.Speed_Limit[6] = 3.9294;
     VT.Time_Limit[6] = 3;
 
-    VT.Speed_Limit[22] = 2;
-    VT.Acc_Limit[22] = 15;
+    VT.Speed_Limit[22] = 3.9294;
+    VT.Acc_Limit[22] = 20;
     VT.Time_Limit[22] = 3.774596669;
 
     VT.Speed_Limit[28] = 0;
@@ -489,7 +521,7 @@ void VT_Init(void)
 void Curve_Segment(void)
 {
     int i = 0;             // 贝塞尔结构体序号
-    int j = 0;             //曲率点序号
+    int j = 0;             // 曲率点序号
     int bk = 0;            // 大片路程片序号.big
     int sk = -1;           // 小路程片序号
     int p_f = 0;           //0为低速段，1为变速段
@@ -517,8 +549,7 @@ void Curve_Segment(void)
             bk++;
 
             // 大片路程片的start序号
-            //VT.B_Piece[bk].p_start = sk + 1;
-            //VT.B_Piece[bk].b_start = i;
+            //VT.B_Piece[bk].start = sk + 1;
 
             // 读 速度限制
             VT.Dis_Piece[sk + 1].v1 = VT.Speed_Limit[i];
@@ -534,15 +565,12 @@ void Curve_Segment(void)
                     pow(VT.Dis_Piece[sk].v1, 2) - 4 * VT.Dis_Piece[sk].Acc_Limit * VT.Dis_Piece[sk].Piece_Dis / 3);
                 VT.Dis_Piece[sk].duration = 3 * (VT.Dis_Piece[sk].v1 - VT.Dis_Piece[sk].v3) / (2 * VT.Dis_Piece[sk].Acc_Limit);
 
-                // 被限制的路程是两个贝塞尔曲线
-
-                l3 += VT.Dis_Piece[sk].Piece_Dis;
-
-                VT.B_Piece[bk]
-                    .p_start = sk + 1;
+                VT.B_Piece[bk].p_start = sk + 1;
                 VT.B_Piece[bk].b_start = i + 2;
 
+                // 被限制的路程是两个贝塞尔曲线
                 i++;
+
                 continue;
             }
             else // 只限制速度，抛球
@@ -577,10 +605,8 @@ void Curve_Segment(void)
             }
             // 曲率代表的一小段路程
             f32 curvature_dis =
-                (j == CURVATURE_POINT_NUM - 1) ? Bez.Curve_Len[i] - Bez.To_Point_Curve_Len[i][j]
-                                               : Bez.To_Point_Curve_Len[i][j + 1] - Bez.To_Point_Curve_Len[i][j];
+                (j == CURVATURE_POINT_NUM - 1) ? Bez.Curve_Len[i] - Bez.To_Point_Curve_Len[i][j] : Bez.To_Point_Curve_Len[i][j + 1] - Bez.To_Point_Curve_Len[i][j];
             VT.Dis_Piece[sk].Piece_Dis += curvature_dis;
-            l3 += curvature_dis;
         }
     }
 
@@ -702,7 +728,7 @@ void Last_Piece_Cal(f32 Piece_Dis, f32 Start_Speed, f32 End_Speed, f32 *Acc,
 {
     f32 Uni1;
     f32 Uni2;
-    Uni1 = (Piece_Dis - 3 * (powf(End_Speed, 2) - powf(Start_Speed, 2)) / (4 * (*Acc))) / (*Duration - (3 * (End_Speed - Start_Speed)) / (2 * (*Acc)));
+    Uni1 = (Piece_Dis - (3 * (powf(End_Speed, 2) - powf(Start_Speed, 2)) / (4 * (*Acc)))) / (*Duration - (3 * (End_Speed - Start_Speed)) / (2 * (*Acc)));
     if (Uni1 > Start_Speed && Uni1 < End_Speed)
     {
         *Uni_Spd = Uni1;
@@ -719,10 +745,7 @@ void Last_Piece_Cal(f32 Piece_Dis, f32 Start_Speed, f32 End_Speed, f32 *Acc,
     f32 c = -(Piece_Dis + (3 * (powf(Start_Speed, 2) + powf(End_Speed, 2))) / (4 * (*Acc)));
     Uni1 = (-b + sqrtf(powf(b, 2) - 4 * a * c)) / (2 * a);
     Uni2 = (-b - sqrtf(powf(b, 2) - 4 * a * c)) / (2 * a);
-    if ((Uni1 > Start_Speed && Uni1 > End_Speed &&
-         *Duration - 3 * fabs(Start_Speed - Uni1) / (2 * *Acc) - 3 * fabs(End_Speed - Uni1) / (2 * *Acc) > 0) ||
-        (Uni2 > Start_Speed && Uni2 > End_Speed &&
-         *Duration - 3 * fabs(Start_Speed - Uni2) / (2 * *Acc) - 3 * fabs(End_Speed - Uni2) / (2 * *Acc) > 0))
+    if ((Uni1 > Start_Speed && Uni1 > End_Speed && *Duration - 3 * fabs(Start_Speed - Uni1) / (2 * *Acc) - 3 * fabs(End_Speed - Uni1) / (2 * *Acc) > 0) || (Uni2 > Start_Speed && Uni2 > End_Speed && *Duration - 3 * fabs(Start_Speed - Uni2) / (2 * *Acc) - 3 * fabs(End_Speed - Uni2) / (2 * *Acc) > 0))
     {
         *Uni_Spd = Uni1 > Start_Speed && Uni1 > End_Speed ? Uni1 : Uni2;
         return;
@@ -733,8 +756,7 @@ void Last_Piece_Cal(f32 Piece_Dis, f32 Start_Speed, f32 End_Speed, f32 *Acc,
         -(Piece_Dis + (3 * (-powf(Start_Speed, 2) - powf(End_Speed, 2))) / (4 * (*Acc)));
     Uni1 = (-b + sqrtf(powf(b, 2) - 4 * a * c)) / (2 * a);
     Uni2 = (-b - sqrtf(powf(b, 2) - 4 * a * c)) / (2 * a);
-    if ((Uni1 > 0 && Uni1 < Start_Speed && Uni1<End_Speed && * Duration - 3 * fabs(Start_Speed - Uni1) / (2 * *Acc) - 3 * fabs(End_Speed - Uni1) / (2 * *Acc)> 0) ||
-        (Uni2 > 0 && Uni2 < Start_Speed && Uni2<End_Speed && * Duration - 3 * fabs(Start_Speed - Uni2) / (2 * *Acc) - 3 * fabs(End_Speed - Uni2) / (2 * *Acc)> 0))
+    if ((Uni1 > 0 && Uni1 < Start_Speed && Uni1<End_Speed && * Duration - 3 * fabs(Start_Speed - Uni1) / (2 * *Acc) - 3 * fabs(End_Speed - Uni1) / (2 * *Acc)> 0) || (Uni2 > 0 && Uni2 < Start_Speed && Uni2<End_Speed && * Duration - 3 * fabs(Start_Speed - Uni2) / (2 * *Acc) - 3 * fabs(End_Speed - Uni2) / (2 * *Acc)> 0))
     {
         *Uni_Spd = Uni1 < Start_Speed && Uni1 < End_Speed ? Uni1 : Uni2;
         return;
@@ -780,7 +802,8 @@ void Speed_Planning_in_Piece(void)
                     VT.Dis_Piece[j].t1 = 3 * fabs(VT.Dis_Piece[j].v1 - VT.Dis_Piece[j].v2) / (2 * VT.Dis_Piece[j].Acc_Limit);
                     VT.Dis_Piece[j].t3 = 3 * fabs(VT.Dis_Piece[j].v2 - VT.Dis_Piece[j].v3) / (2 * VT.Dis_Piece[j].Acc_Limit);
                     // 是否有匀速部分
-                    if (fabs(VT.Dis_Piece[j].t1 + VT.Dis_Piece[j].t3 - VT.Dis_Piece[j].duration) > 0.0001)
+                    if (fabs(
+                            VT.Dis_Piece[j].t1 + VT.Dis_Piece[j].t3 - VT.Dis_Piece[j].duration) > 0.0001)
                     {
                         VT.Dis_Piece[j].t2 = VT.Dis_Piece[j].duration - VT.Dis_Piece[j].t1 - VT.Dis_Piece[j].t3;
                     }
@@ -889,8 +912,8 @@ f32 Designated_Distance(int piece_oeder, f32 t_s, f32 t_e)
     }
 }
 
-/* 函数：Speed_Planning_in_Piece
- * 功能：段内速度规划
+/* 函数：Get_Speed_and_Len
+ * 功能：获取速度和路程
  * 参数：f32* speed    output
  *     f32* len      output
  * 返回值：void
@@ -1019,14 +1042,12 @@ void Get_Speed_and_Len(f32 *speed, f32 *len)
 
     // 时间满，则切换下一个时间片
     VT.time_in_piece = next_time;
-    l4 += *len;
     if (VT.time_in_piece > VT.Dis_Piece[VT.cur_piece].duration)
     {
         VT.time_in_piece = VT.time_in_piece - VT.Dis_Piece[VT.cur_piece].duration;
         VT.cur_piece++;
-        l4 = 0;
         // 终止条件
-        if (VT.cur_piece == VT.piece_num)
+        if (VT.cur_piece >= VT.piece_num)
         {
             R_data.stop_f = 1;
         }
@@ -1046,6 +1067,10 @@ void VT_Calculation(void)
     Speed_Planning_in_Piece();
 }
 
+Real_Time_Data R_data;
+
+f32 data[20][4];
+
 /* 函数名：Real_Time_Data_Init
  * 功能：初始化 实时运算结构体
  * 参数： void
@@ -1061,6 +1086,18 @@ void Real_Time_Data_Init(void)
     R_data.imm_curve_len = 0;
 
     R_data.stop_f = 0;
+
+    R_data.t_num = 0;
+    R_data.order = 0;
+
+    R_data.error_len = 0;
+
+    int i = 0;
+    for (i = 0; i < 16; i++)
+    {
+        data[i][0] = 0;
+        data[i][1] = 0;
+    }
 }
 
 /* 函数名：Immediate_Point_Direction_Calculation
@@ -1090,7 +1127,6 @@ void Immediate_Point_Direction_Calculation(void)
 void Immediate_Point_Speed_Calculation(void)
 {
     Get_Speed_and_Len(&R_data.imm_speed, &R_data.next_move_len);
-    //printf("                      %f   %f\n", R_data.imm_speed, R_data.next_move_len);
 }
 
 /* 函数名：Speed_Vector_Calculation
@@ -1105,7 +1141,6 @@ void Speed_Vector_Calculation(void)
     {
         R_data.imm_speed_vec[i] = R_data.imm_speed * R_data.imm_dir[i];
     }
-    printf("%f   %f    %f    ", R_data.imm_speed_vec[0], R_data.imm_speed_vec[1], R_data.imm_speed_vec[2]);
 }
 
 /* 函数名：Next_Pos_Calculation
@@ -1147,22 +1182,18 @@ void Next_Pos_Calculation(void)
         }
     } while (fabs(len_t - com_len) > LENGTH_ACCURACY);
     Bez.t = tm;
-    l2 += R_data.next_move_len;
-    //printf("%f   %f   %f   %f  %d  %f  %f  %f  %f\n", R_data.imm_speed, R_data.imm_curve_len, Bez.Curve_Len[Bez.order], l2, VT.cur_piece, l4, VT.Dis_Piece[VT.cur_piece].Piece_Dis, VT.time_in_piece, VT.Dis_Piece[VT.cur_piece].duration);
-    printf("%d   %f   %f   %f  %f\n", Bez.order, Bez.t, R_data.imm_dir[0], R_data.imm_dir[1], R_data.imm_dir[2]);
     // 计算下一点位置
     int i = 0;
     for (i = 0; i < 3; i++)
     {
         R_data.next_pos[i] = Bez.Bez_a[Bez.order][i] * Bez.t * Bez.t + Bez.Bez_b[Bez.order][i] * Bez.t + Bez.Bez_c[Bez.order][i];
     }
+
     // 检验下一点位置是否合法
-    /*
-    if (R_data.next_pos[0] < 0 || R_data.next_pos[0] > MAXLEN_X || R_data.next_pos[1] < 0 || R_data.next_pos[1] > MAXLEN_Y || R_data.next_pos[2] < 0 || R_data.next_pos[2] > MAXLEN_Z)
+    if (R_data.next_pos[0] < 0 || R_data.next_pos[0] * 10000 > MAXLEN_X || R_data.next_pos[1] < 0 || R_data.next_pos[1] * 10000 > MAXLEN_Y || R_data.next_pos[2] < 0 || R_data.next_pos[2] * 10000 > MAXLEN_Z)
     {
-        R_data.stop_f = 1;
+        R_data.stop_f = 2;
     }
-    */
 }
 
 /* 函数名：Predict_Speed_and_Position
@@ -1172,6 +1203,7 @@ void Next_Pos_Calculation(void)
  */
 void Predict_Speed_and_Position(void)
 {
+    R_data.order++;
     int i = 0;
     for (i = 0; i < 3; i++) // 更新立即到达位置（imm_pos[3]），用于矫正
     {
@@ -1185,14 +1217,8 @@ void Predict_Speed_and_Position(void)
 
 int main()
 {
-    Tnit_Bez_test();
-    Control_Point_Calculation();
-    Midpoint_Calculation();
-    Bezier_Parameter_Calculation();
-    Curves_Length_Calculation();
-    len_compare();
-    Curvature_and_Length_Calculation();
 
+    Bezier_Calculate();
     VT_Calculation();
     printf("VT计算完成\n");
     /*
@@ -1208,7 +1234,6 @@ int main()
     {
         Predict_Speed_and_Position();
     }
-    printf("%f %f\n", l1, l3);
     printf("结束\n");
     return 0;
 }
